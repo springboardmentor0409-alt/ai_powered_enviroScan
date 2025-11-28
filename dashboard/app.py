@@ -79,7 +79,7 @@ if menu == "🏠 Home":
     )
 
     # Features
-    st.markdown("### 🚀 Key Features (Coming Soon)")
+    st.markdown("### 🚀 Key Features ")
     st.markdown(
         """
         - 🌫️ Real-time pollution data tracking  
