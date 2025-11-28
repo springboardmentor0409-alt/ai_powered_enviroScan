@@ -19,10 +19,8 @@ except ImportError as e:
 
 
 def main():
-    """
-    Orchestrates the entire machine learning pipeline.
-    """
-    print("Starting ML Pipeline Orchestration...")
+    
+    print("Starting ML Project.")
     print("-" * 50)
 
     # Global holders for components needed across steps
