@@ -170,7 +170,6 @@ st.subheader("🔍 Predict Pollution Source (AI)")
 city = st.text_input("City Name")
 season = st.selectbox("Season", df["Season"].unique())
 
-# ---- CITY-WISE AVERAGE POLLUTION VALUES ----
 city_means = df.groupby("city").mean(numeric_only=True)
 
 if st.button(" Predict Pollution Source"):
@@ -180,16 +179,13 @@ if st.button(" Predict Pollution Source"):
         "Season": season
     }
 
-    # If city exists in dataset → use its real average pollution levels
     if city in city_means.index:
         for col in numeric_cols:
             input_data[col] = city_means.loc[city, col]
     else:
-        # If new city → use dataset median
         for col in numeric_cols:
             input_data[col] = df[col].median()
 
-    # Fill categorical columns
     for col in cat_cols:
         if col not in input_data:
             input_data[col] = df[col].mode()[0]
