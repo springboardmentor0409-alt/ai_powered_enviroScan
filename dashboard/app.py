@@ -1,207 +1,320 @@
 import streamlit as st
+import pandas as pd
+import joblib
+import math
+import os
 from pathlib import Path
-import base64
 
-# ---------------------------------------------------
-# 🌍 App Configuration
-# ---------------------------------------------------
+# -----------------------------------------------------------
+# PAGE CONFIGURATION + UI THEME
+# -----------------------------------------------------------
 st.set_page_config(
-    page_title="EnviroScan: AI-Powered Pollution Source Identifier",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_title="EnviroScan – AI Pollution Source Identifier",
+    layout="wide"
 )
 
-# Custom page style
 st.markdown(
     """
     <style>
-    body {
-        background-color: #f9fafc;
-        color: #1c1c1c;
-    }
-    .stSidebar {
-        background-color: #e8f5e9 !important;
-    }
-    h1, h2, h3 {
-        color: #2e7d32;
-    }
+        body {
+            background-color: #f4f6f8;
+        }
+
+        h1, h2, h3 {
+            color: #2E7D32 !important;
+            font-weight: 700 !important;
+        }
+
+        .card {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 14px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        .stButton>button {
+            background-color: #2E7D32;
+            color: white;
+            font-size: 18px;
+            padding: 10px 25px;
+            border-radius: 10px;
+            border: none;
+        }
+
+        .stButton>button:hover {
+            background-color: #1B5E20;
+            color: white;
+        }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# ---------------------------------------------------
-# 🌐 Sidebar Navigation
-# ---------------------------------------------------
-st.sidebar.title("🌿 Dashboard")
+# -----------------------------------------------------------
+# MODEL LOADER
+# -----------------------------------------------------------
+def load_model(model_name):
+    model_paths = {
+        "Random Forest": "../models/random_forest/random_forest.joblib",
+        "Logistic Regression": "../models/logistic_regression/logistic_regression.joblib",
+        "XGBoost": "../models/xgboost_model/xgboost.joblib",
+        "Decision Tree": "../models/decision_tree/decision_tree.joblib",
+    }
+    encoder_paths = {
+        "Random Forest": "../models/random_forest/label_encoder.joblib",
+        "Logistic Regression": "../models/logistic_regression/label_encoder.joblib",
+        "XGBoost": "../models/xgboost_model/label_encoder.joblib",
+        "Decision Tree": "../models/decision_tree/label_encoder.joblib",
+    }
+
+    return joblib.load(model_paths[model_name]), joblib.load(encoder_paths[model_name])
+
+# -----------------------------------------------------------
+# SIDEBAR NAVIGATION (RADIO BUTTONS)
+# -----------------------------------------------------------
+st.sidebar.title("🌿 Navigation")
+
 menu = st.sidebar.radio(
-    "Navigation",
-    ["🏠 Home", "📊 Analytics", "🗺️ Heatmaps", "🧠 Model Insights", "ℹ️ About Project"]
+    "",
+    ["Home", "Predict Source", "Model Insights", "Historical Data", "About Project"]
 )
 
-# ---------------------------------------------------
-# 🏠 HOME PAGE
-# ---------------------------------------------------
-if menu == "🏠 Home":
+# -----------------------------------------------------------
+# HOME PAGE
+# -----------------------------------------------------------
+if menu == "Home":
+    st.markdown("<h1>🌍 EnviroScan: AI-Powered Pollution Source Identifier</h1>", unsafe_allow_html=True)
+    st.subheader("Using Machine Learning & Geospatial Analytics")
+
+    st.markdown("""
+EnviroScan is an AI-driven system designed to **identify the most probable source of pollution** by combining  
+air quality data, weather parameters, and geospatial features. Traditional monitoring systems only indicate  
+pollution levels — EnviroScan reveals **where the pollution is coming from**, enabling smarter environmental decisions.
+
+### 🔍 What EnviroScan Analyzes
+- Pollutant concentrations (PM2.5, PM10, NO₂, SO₂, CO, O₃)  
+- Weather factors (temperature, humidity, wind speed & direction)  
+- Geospatial indicators (distance to roads, industries, farms, and fire events)  
+- Seasonal and temporal patterns  
+
+Based on these features, EnviroScan predicts whether pollution originates from:
+- **Vehicular emissions**  
+- **Industrial zones**  
+- **Agricultural burning**  
+- **Natural environmental causes**
+
+This makes the system highly valuable for environmental agencies, researchers, and policymakers.
+""")
+
+    img_path = Path("assets/enviro_dashboard.png")
+    if img_path.exists():
+        st.image(str(img_path), width=450)
+
+# -----------------------------------------------------------
+# PREDICT SOURCE PAGE
+# -----------------------------------------------------------
+elif menu == "Predict Source":
+    st.markdown("<h1>🔍 Predict Pollution Source</h1>", unsafe_allow_html=True)
+
+    model_choice = st.selectbox(
+        "Select Model",
+        ["Random Forest", "Logistic Regression", "XGBoost", "Decision Tree"]
+    )
+
+    model, encoder = load_model(model_choice)
+
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ✅ Load image from assets folder
-    image_path = Path("assets/enviro_dashboard.png")
-    if image_path.exists():
-        with open(image_path, "rb") as img_file:
-            img_base64 = base64.b64encode(img_file.read()).decode()
+    col1, col2 = st.columns(2)
 
-        # Title and Image side by side
-        st.markdown(
-            f"""
-            <div style='display: flex; align-items: center; justify-content: space-between;'>
-                <div style='flex: 1;'>
-                    <h1 style='color:#2e7d32;'>🌍 EnviroScan</h1>
-                    <h3 style='color:#4e4e4e;'>AI-Powered Pollution Source Identifier using Geospatial Analytics</h3>
-                </div>
-                <div style='flex: 0 0 220px; text-align: right;'>
-                    <img src='data:image/png;base64,{img_base64}' 
-                         style='width:180px; border-radius:12px; box-shadow:0 4px 8px rgba(0,0,0,0.15);'>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    # ---------------- COLUMN 1 ----------------
+    with col1:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🌫 Pollution Levels")
+        PM25 = st.slider("PM2.5", 0, 500, 80)
+        PM10 = st.slider("PM10", 0, 600, 120)
+        NO2 = st.slider("NO2", 0, 200, 30)
+        SO2 = st.slider("SO2", 0, 100, 8)
+        CO = st.slider("CO", 0.0, 10.0, 1.2)
+        O3 = st.slider("O3", 0, 200, 25)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🌦 Weather Conditions")
+        temp = st.slider("Temperature (°C)", -10, 50, 28)
+        humidity = st.slider("Humidity (%)", 0, 100, 60)
+        wind_speed = st.slider("Wind Speed (m/s)", 0, 20, 2)
+        season = st.selectbox("Season", ["summer", "winter", "autumn", "monsoon"])
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ---------------- COLUMN 2 ----------------
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🌬 Wind & Distance Factors")
+        wind_dir = st.slider("Wind Direction (°)", 0, 360, 180)
+        dist_to_road = st.slider("Distance to Road (km)", 0.0, 5.0, 0.2)
+        dist_to_industry = st.slider("Distance to Industry (km)", 0.0, 20.0, 5.0)
+        fire_nearby = st.selectbox("Fire Nearby?", [0, 1])
+        fire_min_dist_km = st.slider("Nearest Fire Distance (km)", 0, 50, 15)
+        traffic = st.slider("Traffic Index", 0, 100, 40)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -----------------------------------------------------------
+    # PREDICT BUTTON
+    # -----------------------------------------------------------
+    if st.button("Predict Pollution Source"):
+
+        wind_dir_rad = math.radians(wind_dir)
+        wind_u = wind_speed * math.cos(wind_dir_rad)
+        wind_v = wind_speed * math.sin(wind_dir_rad)
+
+        data = {
+            "season": season,
+            "PM2.5": PM25, "PM10": PM10,
+            "NO2": NO2, "SO2": SO2,
+            "CO": CO, "O3": O3,
+            "temp": temp, "humidity": humidity,
+            "wind_speed": wind_speed,
+            "wind_dir": wind_dir,
+            "wind_dir_rad": wind_dir_rad,
+            "wind_u": wind_u,
+            "wind_v": wind_v,
+            "dist_to_road": dist_to_road,
+            "dist_to_industry": dist_to_industry,
+            "dist_to_farm": 1.0,
+            "fire_nearby": fire_nearby,
+            "fire_min_dist_km": fire_min_dist_km,
+            "traffic_index": traffic,
+            "city": "UnknownCity",
+            "location_id": "LOC_0",
+            "year": 2020, "month": 1, "dayofyear": 1,
+
+            # Required placeholder scaled features
+            "PM2.5_s": 0, "PM10_s": 0, "NO2_s": 0, "SO2_s": 0,
+            "CO_s": 0, "O3_s": 0, "temp_s": 0, "humidity_s": 0,
+            "wind_speed_s": 0, "traffic_index_s": 0,
+            "dist_to_road_s": 0, "dist_to_industry_s": 0,
+            "dist_to_farm_s": 0, "fire_min_dist_km_s": 0,
+            "road_bearing": 0, "industry_bearing": 0,
+            "farm_bearing": 0, "fire_bearing": 0,
+            "align_r": 0, "align_i": 0,
+            "align_f": 0, "align_fire": 0,
+        }
+
+        df = pd.DataFrame([data])
+        pred = model.predict(df)[0]
+        label = encoder.inverse_transform([pred])[0]
+
+        st.success(f"🌱 Predicted Pollution Source: **{label}**")
+
+# -----------------------------------------------------------
+# MODEL INSIGHTS PAGE WITH EXPLANATIONS
+# -----------------------------------------------------------
+elif menu == "Model Insights":
+    st.markdown("<h1>📈 Model Insights</h1>", unsafe_allow_html=True)
+
+    model_select = st.selectbox(
+        "Choose Model",
+        ["Random Forest", "Logistic Regression", "XGBoost", "Decision Tree"]
+    )
+
+    result_folders = {
+        "Random Forest": "../results/random_forest/",
+        "Logistic Regression": "../results/logistic_regression/",
+        "XGBoost": "../results/xgboost_model/",
+        "Decision Tree": "../results/decision_tree/",
+    }
+
+    img_folder = Path(result_folders[model_select])
+
+    descriptions = {
+        "confusion_matrix": """
+### 🟦 Confusion Matrix  
+Shows how accurately the model predicts each pollution source.  
+- Diagonal = correct predictions  
+- Off-diagonal = misclassifications  
+""",
+
+        "classification_report": """
+### 📘 Classification Report  
+Shows Precision, Recall, and F1-score for each pollution class.  
+Higher values = better performance.  
+""",
+
+        "feature_importance": """
+### ⭐ Feature Importance  
+Displays which features influence the model the most.  
+Helps understand how the model makes decisions.  
+""",
+
+        "cv_f1_scores": """
+### 🔁 Cross-Validation F1 Scores  
+Indicates how stable the model is across multiple folds.  
+Stable scores mean the model generalizes well.  
+"""
+    }
+
+    if not img_folder.exists():
+        st.error("⚠️ No insight results found for this model.")
+
     else:
-        st.error("❌ Image not found: Please place it in `assets/enviro_dashboard.png`")
+        for img_file in sorted(os.listdir(img_folder)):
+            if img_file.endswith((".png", ".jpg")):
 
-    # Description
-    st.markdown(
-        """
-        Welcome to **EnviroScan**, an AI-powered system designed to **detect, visualize, and analyze pollution sources** in real time.  
-        This dashboard allows you to monitor environmental conditions, visualize hotspots, and view predictive insights powered by AI.
-        """
-    )
+                img_name = img_file.replace(".png", "")
+                clean_title = img_name.replace("_", " ").title()
 
-    # Features
-    st.markdown("### 🚀 Key Features ")
-    st.markdown(
-        """
-        - 🌫️ Real-time pollution data tracking  
-        - 🗺️ Dynamic heatmap visualization  
-        - 🧠 AI-powered pollution source classification  
-        - ☁️ Integration with weather datasets  
-        - 📈 Interactive analytics and automated alerts  
-        """
-    )
+                st.subheader(clean_title)
+                st.image(str(img_folder / img_file))
 
-    st.success("✅ Dashboard Interface Loaded Successfully!")
-
-# ---------------------------------------------------
-# 📊 ANALYTICS PAGE
-# ---------------------------------------------------
-elif menu == "📊 Analytics":
-    st.title("📊 Pollution Analytics Overview")
-    st.markdown(
-        """
-        This section will display **data visualizations and metrics** once pollution and weather datasets are connected.  
-        Below are some placeholder stats for demonstration.
-        """
-    )
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Average AQI (Placeholder)", "178", "+5 from last week")
-    col2.metric("Most Polluted City", "Delhi", "PM2.5 ↑")
-    col3.metric("Safest City", "Kochi", "PM2.5 ↓")
-
-    st.info("📊 Charts & comparisons will appear here once data integration is complete.")
-
-# ---------------------------------------------------
-# 🗺️ HEATMAPS PAGE
-# ---------------------------------------------------
-# ---------------------------------------------------
-# 🗺️ HEATMAPS PAGE
-# ---------------------------------------------------
-elif menu == "🗺️ Heatmaps":
-    st.title("🗺️ Pollution Heatmaps & EDA Visualizations")
-
-    st.markdown("### Below are the EDA visualizations generated from the dataset.")
-
-    import os
-    from pathlib import Path
-    from PIL import Image
-
-    # Suppress Streamlit logs in terminal
-    import logging
-    logging.getLogger("streamlit").setLevel(logging.CRITICAL)
-
-    eda_folder = Path("assets/eda/")
-
-    if not eda_folder.exists():
-        st.error("❌ Folder not found: assets/eda/. Please add your EDA images there.")
-    else:
-        image_files = sorted([
-            f for f in os.listdir(eda_folder)
-            if f.lower().endswith((".png", ".jpg", ".jpeg"))
-        ])
-
-        if not image_files:
-            st.warning("⚠️ No images found in assets/eda/")
-        else:
-
-            # 🔥 Display 2 images per row
-            for i in range(0, len(image_files), 2):
-
-                col1, col2 = st.columns(2)
-
-                # --- First Image ---
-                with col1:
-                    img_name = image_files[i]
-                    clean_title = img_name.split(".")[0].replace("_", " ").title()
-                    st.subheader(f"📌 {clean_title}")
-                    st.image(str(eda_folder / img_name), width="stretch")
-
-                # --- Second Image ---
-                if i + 1 < len(image_files):
-                    with col2:
-                        img_name_2 = image_files[i + 1]
-                        clean_title_2 = img_name_2.split(".")[0].replace("_", " ").title()
-                        st.subheader(f"📌 {clean_title_2}")
-                        st.image(str(eda_folder / img_name_2), width="stretch")
+                # Show matching description
+                for key in descriptions:
+                    if key in img_name:
+                        st.markdown(descriptions[key])
+                        break
 
                 st.markdown("---")
 
-# ---------------------------------------------------
-# 🧠 MODEL INSIGHTS PAGE
-# ---------------------------------------------------
-elif menu == "🧠 Model Insights":
-    st.title("🧠 AI Model Insights (Coming Soon)")
-    st.markdown(
-        """
-        This section will display **machine learning predictions** such as pollution source detection, 
-        feature importance, and model performance summaries.
-        """
-    )
-    st.info("💡 You can integrate your trained ML model later here for predictions.")
+# -----------------------------------------------------------
+# HISTORICAL DATA PAGE
+# -----------------------------------------------------------
+elif menu == "Historical Data":
+    st.markdown("<h1>📜 Historical Data Explorer</h1>", unsafe_allow_html=True)
+    st.info("Upload or visualize historical pollution datasets here (coming soon).")
 
-# ---------------------------------------------------
-# ℹ️ ABOUT PAGE
-# ---------------------------------------------------
-elif menu == "ℹ️ About Project":
-    st.title("ℹ️ About EnviroScan Project")
-    st.markdown(
-        """
-        ### 🌟 Project Vision
-        To develop an intelligent, AI-based system that identifies and visualizes pollution sources in real time.
+# -----------------------------------------------------------
+# ABOUT PAGE
+# -----------------------------------------------------------
+elif menu == "About Project":
+    st.markdown("<h1>ℹ️ About EnviroScan</h1>", unsafe_allow_html=True)
+    st.markdown("""
+### 🌟 Purpose of the Project  
+Most existing pollution monitoring systems only measure how bad the air quality is,  
+but they do not identify **why** pollution is increasing. EnviroScan solves this using AI + geospatial analytics.
 
-        ### 🧩 Technologies Used
-        -  Python  
-        -  Streamlit (Frontend UI)  
-        -  Pandas, NumPy (Data Processing)  
-        -  Scikit-learn (Machine Learning)  
-        -  Folium / Plotly (Visualization)
+### 🎯 Key Outcomes  
+- Predicts pollution source categories  
+- Creates pollution heatmaps  
+- Triggers alerts  
+- Offers interactive visual analytics  
 
-        ### 🎯 Future Goals
-        - Integrate live pollution & weather APIs  
-        - Build automated pollution alerts  
-        - Deploy dashboard on the web for public access  
-        - Enable city-level comparison and historical trend analysis  
-        """
-    )
+### 🧠 Modules Implemented  
+- Data Collection (OpenAQ, OpenWeather, OSMnx)  
+- Feature Engineering  
+- Source Labeling  
+- ML Models (RF, XGBoost, LR, DT)  
+- Geospatial Mapping  
+- Interactive Dashboard  
 
-    st.success("✅ Dashboard base setup complete — more modules coming soon!")
+### 🏗 System Architecture  
+API Data → Cleaning → Feature Engineering → Labeling → Model → Dashboard  
+
+### 📝 Deliverables  
+- ML models  
+- Dashboard  
+- Heatmaps  
+- Documentation  
+""")
