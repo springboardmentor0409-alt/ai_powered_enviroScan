@@ -1,0 +1,10 @@
+              precision    recall  f1-score   support
+
+Agricultural       0.98      0.98      0.98      8296
+     Burning       0.98      0.99      0.99     14344
+  Industrial       0.98      0.98      0.98      6820
+   Vehicular       0.99      0.99      0.99     10720
+
+    accuracy                           0.98     40180
+   macro avg       0.98      0.98      0.98     40180
+weighted avg       0.98      0.98      0.98     40180
