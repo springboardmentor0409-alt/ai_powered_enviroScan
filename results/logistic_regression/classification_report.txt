@@ -1,10 +1,3 @@
-              precision    recall  f1-score   support
-
-Agricultural       0.94      0.97      0.95      8296
-     Burning       0.97      0.94      0.96     14344
-  Industrial       0.94      0.97      0.95      6820
-   Vehicular       0.97      0.98      0.98     10720
-
-    accuracy                           0.96     40180
-   macro avg       0.96      0.96      0.96     40180
-weighted avg       0.96      0.96      0.96     40180
+version https://git-lfs.github.com/spec/v1
+oid sha256:ef202828c87fa46885ee8f11de9b76b4df2b1aaac2eec689bdac3692bbf7d230
+size 444
