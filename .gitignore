@@ -8,4 +8,7 @@ __pycache__/
 *.so
 # Environment variables
 *.env
-Add-Content .gitignore "`n# Ignore data CSVs`ndata/*.csv"
+
+
+# Ignore data CSVs
+data/*.csv
