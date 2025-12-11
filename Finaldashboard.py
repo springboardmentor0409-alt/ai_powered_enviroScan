@@ -1,9 +1,15 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 import matplotlib.pyplot as plt
+import os
+import plotly.express as px
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+
 
 # -------------------------------------------------------------
 # PAGE CONFIG
@@ -13,35 +19,6 @@ st.set_page_config(
     page_icon="🌿",
     layout="wide"
 )
-
-# -------------------------------------------------------------
-# DYNAMIC FOOTER FUNCTION
-# -------------------------------------------------------------
-def eco_footer(tab_name):
-    messages = {
-        "🏠 Home": "🌱 Building a sustainable future with AI-driven environmental intelligence.",
-        "📊 EDA Overview": "📘 Data speaks — understanding pollution starts with good EDA.",
-        "📈 Model Comparison": "🤖 Smarter models, clearer insights — choose what works best.",
-        "🔍 Pollution Predictor": "🌿 Your air quality insights are just one prediction away!"
-    }
-
-    msg = messages.get(tab_name, "🌍 EnviroScan — Cleaner Air Through Smarter Analytics")
-
-    st.markdown(f"""
-    <div style="
-        margin-top:40px;
-        padding:15px;
-        text-align:center;
-        background:#e8f5e9;
-        border-radius:10px;
-        color:#1b5e20;
-        font-size:15px;
-        font-weight:600;
-        border-top:3px solid #2e7d32;
-    ">
-        {msg}
-    </div>
-    """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # GLOBAL STYLING
@@ -77,6 +54,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+
 # -------------------------------------------------------------
 # LOAD DATA
 # -------------------------------------------------------------
@@ -104,7 +83,7 @@ st.sidebar.title("🌿 EnviroScan Navigation")
 
 page = st.sidebar.radio(
     "Go To:",
-    ["🏠 Home", "📊 EDA Overview", "📈 Model Comparison", "🔍 Pollution Predictor"]
+    ["🏠 Home", "📊 EDA Overview", "📈 Model Comparison", "🔍 Pollution Predictor", "📽 Advanced Visual Dashboard"]
 )
 
 # -------------------------------------------------------------
@@ -170,6 +149,7 @@ if page == "🏠 Home":
     - 📌 Real-time analytics ready  
     """)
 
+    # 3 Overview Cards
     col1, col2, col3 = st.columns(3)
     col1.markdown("""<div style="background:#e8f5e9; padding:15px; border-radius:12px;">
         <h3>📘 Dataset</h3>
@@ -187,7 +167,41 @@ if page == "🏠 Home":
         unsafe_allow_html=True
     )
 
-    eco_footer("🏠 Home")
+    # Timeline
+    st.markdown("""
+    ---
+    ### 🛠 Project Workflow Timeline
+    <div style="display:flex; justify-content:space-between;">
+        <div style="width:22%; background:#e8f5e9; padding:15px; border-radius:10px; text-align:center;">
+            <h3>📥 Data Collection</h3><p>Pollutant, weather & traffic data gathered.</p></div>
+        <div style="width:22%; background:#e3f2fd; padding:15px; border-radius:10px; text-align:center;">
+            <h3>⚙️ Processing</h3><p>Cleaning, filtering, engineering.</p></div>
+        <div style="width:22%; background:#fff9c4; padding:15px; border-radius:10px; text-align:center;">
+            <h3>🤖 Model Training</h3><p>AI learns pollutant signatures.</p></div>
+        <div style="width:22%; background:#ffe0b2; padding:15px; border-radius:10px; text-align:center;">
+            <h3>📊 Dashboard</h3><p>Visualization & realtime inference.</p></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Key Highlights
+    st.markdown("""
+    ---
+    ### ⭐ Key Highlights
+    <div style="display:flex; justify-content:space-around; padding:20px; background:#e8f5e9; border-radius:12px;">
+        <div style='text-align:center;'><h2>⚡</h2><p><b>Fast Predictions</b><br><small>Under 100ms</small></p></div>
+        <div style='text-align:center;'><h2>📊</h2><p><b>Clear Analytics</b><br><small>User-friendly visuals</small></p></div>
+        <div style='text-align:center;'><h2>🌍</h2><p><b>Eco-Focused</b><br><small>Built for sustainability</small></p></div>
+        <div style='text-align:center;'><h2>🤖</h2><p><b>AI Powered</b><br><small>Smart inference engine</small></p></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <hr>
+    <div style='text-align:center; padding:10px; color:#1b5e20;'>
+        🌿 <b>EnviroScan</b> — Together we build a cleaner, greener tomorrow.
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # -------------------------------------------------------------
 #  EDA OVERVIEW
@@ -217,10 +231,16 @@ elif page == "📊 EDA Overview":
     st.subheader("📌 Correlation Matrix")
     st.write(df[FEATURES].corr())
 
-    eco_footer("📊 EDA Overview")
+    st.markdown("""
+    <hr>
+    <div style='text-align:center; padding:10px; color:#1b5e20;'>
+        📊 Exploration fuels understanding — Nature reveals patterns if we observe deeply.
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # -------------------------------------------------------------
-# MODEL COMPARISON
+# MODEL COMPARISON (SMART DISPLAY WITH DESCRIPTIONS)
 # -------------------------------------------------------------
 elif page == "📈 Model Comparison":
 
@@ -233,6 +253,7 @@ elif page == "📈 Model Comparison":
 
     import os
 
+    # Model folder paths
     model_paths = {
         "Decision Tree": "results/decision_tree/",
         "Logistic Regression": "results/logistic_regression/",
@@ -242,60 +263,132 @@ elif page == "📈 Model Comparison":
 
     base = model_paths[model_choice]
 
-    st.markdown(f"## 📌 Results for **{model_choice}**")
-
+    # Correct file names inside folders
     feature_img = base + "feature_importance.png"
     class_img = base + "classification_report.png"
     cm_img = base + "confusion_matrix.png"
-    cv_img = base + "cv_f1_scores.png"
+    cv_img = base + "cv_f1_scores.png"   
 
+    st.markdown(f"## 📌 Results for **{model_choice}**")
+
+    # -------------------------------------------------
+    #  FEATURE IMPORTANCE 
+    # -------------------------------------------------
     st.subheader("🌿 Feature Importance")
-    if model_choice != "Logistic Regression":
+
+    if model_choice == "Logistic Regression":
+        st.info("""
+        ℹ **Logistic Regression does not support feature importance plots** 
+        because it uses coefficients instead of tree-based importance.
+        """)
+    else:
+        st.markdown("""
+        **Meaning of this plot:**  
+        - Shows how strongly each pollutant influences predictions  
+        - Higher bar → stronger importance  
+        - Helps explain model behavior  
+        """)
+
         if os.path.exists(feature_img):
             st.image(feature_img, use_container_width=True)
         else:
             st.warning("⚠ Feature importance image missing.")
-    else:
-        st.info("ℹ Logistic Regression does not support feature importance plots.")
 
     st.markdown("---")
-    st.subheader("📊 Classification Report")
+
+    # -------------------------------------------------
+    #  CLASSIFICATION REPORT
+    # -------------------------------------------------
+    st.subheader("📊 Classification Report (Precision • Recall • F1 Score)")
+
+    st.markdown("""
+    **Interpretation:**  
+    - **Precision:** Accuracy of predicted positives  
+    - **Recall:** Ability to detect real positives  
+    - **F1-score:** Balance between precision & recall  
+    """)
+
     if os.path.exists(class_img):
         st.image(class_img, use_container_width=True)
+    else:
+        st.error("❌ Classification report image missing!")
 
     st.markdown("---")
+
+    # -------------------------------------------------
+    #  CONFUSION MATRIX
+    # -------------------------------------------------
     st.subheader("🔷 Confusion Matrix")
+
+    st.markdown("""
+    **How to read this:**  
+    - Rows = actual labels  
+    - Columns = predicted labels  
+    - Diagonal = correct predictions  
+    - Off-diagonal = misclassifications  
+    """)
+
     if os.path.exists(cm_img):
         st.image(cm_img, use_container_width=True)
+    else:
+        st.error("❌ Confusion matrix image missing!")
 
     st.markdown("---")
-    st.subheader("📈 Cross-Validation F1 Scores")
+
+    # -------------------------------------------------
+    # CROSS VALIDATION F1 MACRO SCORES
+    # -------------------------------------------------
+    st.subheader("📈 Cross-Validation F1-Macro Scores")
+
+    st.markdown("""
+    **Why this matters:**  
+    - Evaluates model stability across multiple folds  
+    - Higher & consistent F1-macro → better generalization  
+    """)
+
     if os.path.exists(cv_img):
         st.image(cv_img, use_container_width=True)
+    else:
+        st.error("❌ CV F1-score plot missing! Expected file: " + cv_img)
 
-    eco_footer("📈 Model Comparison")
+        st.markdown("""
+    <hr>
+    <div style='text-align:center; padding:10px; color:#1b5e20;'>
+        🤖 Smarter Models. Cleaner Air. A Sustainable Future Awaits.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+
 
 # -------------------------------------------------------------
 #  POLLUTION PREDICTOR
 # -------------------------------------------------------------
 elif page == "🔍 Pollution Predictor":
 
+    
     st.markdown("""
     <style>
+    /* Fix labels in number_input (text before input box) */
     .css-10trblm, .css-1fcdlhc, label, .stNumberInput label {
         color: #1b5e20 !important;
         font-weight: 600 !important;
     }
+
+    /* Fix placeholder / value text color */
     .stNumberInput input {
         color: #1b5e20 !important;
         font-weight: 600;
     }
+
+    /* Fix minus/plus button text color */
     .stNumberInput button {
         color: #1b5e20 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
+    # ------------------------- TITLE -------------------------
     st.markdown("""
     <h1 style="color:#1b5e20; text-align:center;">🔍 AI Pollution Source Predictor</h1>
     <p style="text-align:center; font-size:18px; color:#2e7d32;">
@@ -306,6 +399,7 @@ elif page == "🔍 Pollution Predictor":
 
     st.markdown("<h3 style='color:#1b5e20;'>🧪 Enter Pollution Indicators</h3>", unsafe_allow_html=True)
 
+    # ------------------------- INPUT FIELDS -------------------------
     col1, col2 = st.columns(2)
 
     with col1:
@@ -321,10 +415,12 @@ elif page == "🔍 Pollution Predictor":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ------------------------- BUTTON -------------------------
     predict = st.button("🌿 Predict Pollution Source", use_container_width=True)
 
     if predict:
 
+        # Create input dataframe
         input_data = pd.DataFrame([{
             "PM2.5": pm25, "PM10": pm10,
             "NO2": no2, "SO2": so2,
@@ -332,10 +428,12 @@ elif page == "🔍 Pollution Predictor":
             "traffic_index": traffic
         }])
 
+        # Predict
         pred_encoded = model.predict(input_data)[0]
         pred_label = label_encoder.inverse_transform([pred_encoded])[0]
         confidence = model.predict_proba(input_data).max() * 100
 
+        # ---------------- CONFIDENCE LEVEL ----------------
         if confidence >= 80:
             conf_color = "#2e7d32"
             conf_text = "High Confidence"
@@ -346,6 +444,7 @@ elif page == "🔍 Pollution Predictor":
             conf_color = "#c62828"
             conf_text = "Low Confidence"
 
+        # ---------------- RESULT CARD ----------------
         st.markdown(f"""
         <div style="
             background: linear-gradient(135deg, #a5d6a7, #81c784);
@@ -365,6 +464,9 @@ elif page == "🔍 Pollution Predictor":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
+        # ======================================================================
+        # HEALTH RISK ASSESSMENT
+        # ======================================================================
         avg_pollution = np.mean([pm25, pm10, no2, so2, co, o3])
 
         if avg_pollution < 50:
@@ -388,7 +490,9 @@ elif page == "🔍 Pollution Predictor":
         </div>
         """, unsafe_allow_html=True)
 
-        # DISTANCE MATRIX
+        # ======================================================================
+        # 📏 DISTANCE MATRIX (NEW)
+        # ======================================================================
         st.markdown("<h3 style='color:#1b5e20;'>📏 Distance Matrix (Similarity to Known Sources)</h3>", unsafe_allow_html=True)
 
         CLASS_PROFILES = {
@@ -401,6 +505,7 @@ elif page == "🔍 Pollution Predictor":
         }
 
         user_vec = np.array([pm25, pm10, no2, so2, co, o3, traffic])
+
         distances = {cls: np.linalg.norm(user_vec - np.array(profile)) for cls, profile in CLASS_PROFILES.items()}
 
         dist_df = pd.DataFrame(list(distances.items()), columns=["Source Type", "Distance"]).sort_values("Distance")
@@ -415,7 +520,9 @@ elif page == "🔍 Pollution Predictor":
         </div>
         """, unsafe_allow_html=True)
 
+        # ======================================================================
         # FEATURE IMPORTANCE
+        # ======================================================================
         st.markdown("<h3 style='color:#1b5e20;'>📘 Feature Importance</h3>", unsafe_allow_html=True)
 
         feature_importance = model.feature_importances_
@@ -426,7 +533,9 @@ elif page == "🔍 Pollution Predictor":
         ax.set_title("Feature Influence on Prediction")
         st.pyplot(fig)
 
+        # ======================================================================
         # RADAR CHART
+        # ======================================================================
         st.markdown("<h3 style='color:#1b5e20;'>🕸 Pollution Fingerprint (Radar Chart)</h3>", unsafe_allow_html=True)
 
         labels = FEATURES
@@ -445,7 +554,9 @@ elif page == "🔍 Pollution Predictor":
 
         st.pyplot(fig2)
 
-        # SUMMARY
+        # ======================================================================
+        # TEXTUAL EXPLANATION
+        # ======================================================================
         st.markdown("<h3 style='color:#1b5e20;'>📝 Explanation Summary</h3>", unsafe_allow_html=True)
 
         top_features = sorted(
@@ -456,9 +567,11 @@ elif page == "🔍 Pollution Predictor":
 
         explanation_text = f"""
         The prediction is primarily influenced by:
-        - **{top_features[0][0]}**  
+        - **{top_features[0][0]}** (highest impact)  
         - **{top_features[1][0]}**  
         - **{top_features[2][0]}**  
+
+        These pollutant levels closely match typical patterns of **{pred_label}** emissions.
         """
 
         st.markdown(f"""
@@ -467,4 +580,95 @@ elif page == "🔍 Pollution Predictor":
         </div>
         """, unsafe_allow_html=True)
 
-    eco_footer("🔍 Pollution Predictor")
+        st.markdown("""
+    <hr>
+    <div style='text-align:center; padding:10px; color:#1b5e20;'>
+        🌿 AI-powered insights guiding every breath — Choose a healthier path.
+    </div>
+    """, unsafe_allow_html=True)
+
+        
+# -------------------------------------------------------------
+# 📽 NEW TAB: ADVANCED VISUAL DASHBOARD
+# -------------------------------------------------------------
+elif page == " Advanced Visual Dashboard":
+
+    st.markdown("""
+        <div style="text-align:center; padding: 10px;">
+            <h1>🌍 AI-Powered <span style="color:#1E8449">EnviroScan Dashboard</span></h1>
+            <h3>Smart • Sustainable • Environmental Intelligence</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # ---------------- LOAD SEPARATE DATASET SAFELY ----------------
+    @st.cache_data
+    def load_dashboard_data():
+        df = pd.read_csv("pollution_labeled_output.csv")
+        df["date"] = pd.to_datetime(df["date"], errors="ignore")
+        df["year"] = df["date"].dt.year
+        df["month"] = df["date"].dt.month
+        df["dayofyear"] = df["date"].dt.dayofyear
+        df.fillna(df.median(numeric_only=True), inplace=True)
+        df.fillna("Unknown", inplace=True)
+        return df
+
+    df_dash = load_dashboard_data()
+
+    st.header("🖼 Visual EDA Insights — Eco Perspective")
+
+    image_folder = "dashboard"
+    images = [img for img in os.listdir(image_folder) if img.endswith(".png")]
+
+    cols = st.columns(2)
+    for i, img in enumerate(images):
+        with cols[i % 2]:
+            st.image(f"{image_folder}/{img}", caption=img, use_container_width=True)
+
+    st.header("🌿 Environmental Visualizations")
+
+    pollutants = ["PM2.5", "PM10", "NO2", "SO2", "CO", "O3"]
+    df_sorted = df_dash.sort_values("date")
+
+    st.subheader("📈 Time-Based Pollutant Trend")
+    fig_line = px.line(
+        df_sorted,
+        x="date",
+        y=pollutants,
+        animation_frame=df_sorted["year"].astype(str),
+        title="Pollutant Levels Over Time"
+    )
+    st.plotly_chart(fig_line, use_container_width=True)
+
+    st.subheader("🍃 Seasonal Pollution Behavior")
+    df_season = df_dash.groupby(["Season", "year"])[pollutants].mean().reset_index()
+
+    fig_bar = px.bar(
+        df_season,
+        x="Season",
+        y="PM2.5",
+        color="Season",
+        animation_frame="year",
+        title="Season-wise PM2.5 Levels"
+    )
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+    st.subheader("📍 Pollution Movement Across Regions")
+    fig_geo = px.scatter(
+        df_sorted,
+        x="longitude",
+        y="latitude",
+        color="PM2.5",
+        animation_frame=df_sorted["year"].astype(str),
+        title="Animated Pollution Spread",
+        color_continuous_scale="greens"
+    )
+    st.plotly_chart(fig_geo, use_container_width=True)
+
+    st.markdown("""
+    <hr>
+    <div style='text-align:center; padding:10px; color:#1b5e20;'>
+        📽 Visualizing Earth’s heartbeat — Data for a greener generation.
+    </div>
+    """, unsafe_allow_html=True)
+
+
