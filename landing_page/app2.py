@@ -1,497 +1,321 @@
-# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
-import folium
-from streamlit_folium import st_folium
-from folium.plugins import MarkerCluster, HeatMap
-import matplotlib.pyplot as plt
-import numpy as np
-import datetime
+import joblib
+import math
+import os
+from pathlib import Path
 
-# ------------------- STRONG CSS OVERRIDES (force light widgets everywhere) -------------------
-st.markdown("""
-<style>
-/* Generic force-light fallback for Streamlit widgets */
-:root { color-scheme: light !important; }
+# -----------------------------------------------------------
+# PAGE CONFIGURATION + UI THEME
+# -----------------------------------------------------------
+st.set_page_config(
+    page_title="EnviroScan – AI Pollution Source Identifier",
+    layout="wide"
+)
 
-/* Basic page bg / title as before */
-.stApp { background: linear-gradient(135deg, #b3e5fc 0%, #f8bbd0 100%) !important; }
+st.markdown(
+    """
+    <style>
+        body {
+            background-color: #f4f7fb;
+        }
 
-/* Force main text dark */
-* { color: #111 !important; }
+        h1, h2, h3 {
+            color: #1565C0 !important;   /* Blue Theme */
+            font-weight: 700 !important;
+        }
 
-/* Sidebar panel */
-section[data-testid="stSidebar"] {
-  background: #ffffff !important;
-  color: #111 !important;
-}
+        .card {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 14px;
+            box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+            border-left: 5px solid #1565C0; /* Blue Accent */
+        }
 
-/* Most widget clickable areas */
-div[role="combobox"],
-div[data-baseweb="select"],
-div[data-baseweb="select"] > div[role="button"],
-div[role="listbox"],
-div[role="option"],
-input[type="text"], input[type="date"], textarea,
-button, .stButton > button {
-  background: #ffffff !important;
-  color: #111 !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 10px !important;
-  box-shadow: none !important;
-}
+        .stButton>button {
+            background-color: #1565C0; /* Button Blue */
+            color: white;
+            font-size: 18px;
+            padding: 10px 25px;
+            border-radius: 10px;
+            border: none;
+        }
 
-/* Select internal list panel */
-div[role="listbox"] {
-  background: #ffffff !important;
-  color: #111 !important;
-}
+        .stButton>button:hover {
+            background-color: #0D47A1; /* Dark Blue hover */
+            color: white;
+        }
 
-/* Placeholder color */
-::placeholder { color: #666 !important; opacity: 1 !important; }
+        .sidebar .sidebar-content {
+            background-color: #E3F2FD !important; /* Soft blue sidebar */
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-/* Override some Streamlit auto-generated classes */
-.css-1n76uvr, .css-1vencpc, .css-ocqkz7, .css-1aumxhk {
-  background: transparent !important;
-  color: #111 !important;
-}
+# -----------------------------------------------------------
+# MODEL LOADER
+# -----------------------------------------------------------
+def load_model(model_name):
+    model_paths = {
+        "Random Forest": "models/random_forest/random_forest.joblib",
+        "Logistic Regression": "models/logistic_regression/logistic_regression.joblib",
+        "XGBoost": "models/xgboost_model/xgboost.joblib",
+        "Decision Tree": "models/decision_tree/decision_tree.joblib",
+    }
+    encoder_paths = {
+        "Random Forest": "models/random_forest/label_encoder.joblib",
+        "Logistic Regression": "models/logistic_regression/label_encoder.joblib",
+        "XGBoost": "models/xgboost_model/label_encoder.joblib",
+        "Decision Tree": "models/decision_tree/label_encoder.joblib",
+    }
 
-/* Caret / arrow */
-div[data-baseweb="select"] svg { fill: #111 !important; }
+    return joblib.load(model_paths[model_name]), joblib.load(encoder_paths[model_name])
 
-/* Buttons hover */
-.stButton > button:hover { background-color: #f3f4f6 !important; }
+# -----------------------------------------------------------
+# SIDEBAR NAVIGATION
+# -----------------------------------------------------------
+st.sidebar.title("🌿 Navigation")
 
-</style>
-""", unsafe_allow_html=True)
+menu = st.sidebar.radio(
+    "",
+    ["Home", "Predict Source", "Model Insights", "Historical Data", "About Project"]
+)
 
-st.markdown("""
-<style>
-/* Page background */
-.stApp {
-    background: linear-gradient(135deg, #b3e5fc 0%, #f8bbd0 100%) !important;
-}
+# -----------------------------------------------------------
+# HOME PAGE
+# -----------------------------------------------------------
+if menu == "Home":
+    st.markdown("<h1> EnviroScan: AI-Powered Pollution Source Identifier</h1>", unsafe_allow_html=True)
+    st.subheader("Using Machine Learning & Geospatial Analytics")
 
-/* Title styling */
-.title-container {
-    display: flex;
-    align-items: center;
-    background: linear-gradient(90deg,#4facfe 0%,#00f2fe 100%) !important;
-    border-radius: 14px;
-    padding: 15px 25px;
-    margin-bottom: 1.5rem;
-    color: white;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-}
-.title-container h1 { font-size: 2.7rem; font-weight: 900; margin: 0; text-shadow: 2px 2px 7px rgba(0,0,0,0.7); }
+    st.markdown("""
+EnviroScan is an AI-driven system designed to **identify the most probable source of pollution** by combining  
+air quality data, weather parameters, and geospatial features. Traditional monitoring systems only indicate  
+pollution levels — EnviroScan reveals **where the pollution is coming from**, enabling smarter environmental decisions.
 
-/* Make default text dark everywhere */
-* { color: #111 !important; }
+### 🔍 What EnviroScan Analyzes
+- Pollutant concentrations (PM2.5, PM10, NO₂, SO₂, CO, O₃)  
+- Weather factors (temperature, humidity, wind speed & direction)  
+- Geospatial indicators (distance to roads, industries, farms, and fire events)  
+- Seasonal and temporal patterns  
 
-/* ---------- Sidebar: white panel ---------- */
-section[data-testid="stSidebar"] {
-    background: #ffffff !important;
-    color: #111 !important;
-    padding: 1.2rem !important;
-    width: 340px !important;
-    box-shadow: 6px 0 18px rgba(0,0,0,0.12);
-    border-left: 1px solid rgba(0,0,0,0.04);
-}
+Based on these features, EnviroScan predicts whether pollution originates from:
+- **Vehicular emissions**  
+- **Industrial zones**  
+- **Agricultural burning**  
+- **Natural environmental causes**
 
-/* ---------- FORCE LIGHT STYLING FOR ALL WIDGETS (main + sidebar) ---------- */
-/* Selectbox / Dropdown button */
-div[data-baseweb="select"] > div[role="button"],
-.stSelectbox > div[role="button"],
-div[role="listbox"],
-div[role="option"],
-/* Text inputs & textareas */
-.stTextInput input,
-textarea,
-input[type="text"],
-/* Date input */
-.stDateInput input,
-input[type="date"],
-/* Multiselect */
-.stMultiSelect > div[role="button"],
-/* Buttons */
-.stButton > button,
-button {
-    background-color: #ffffff !important;
-    color: #111 !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 10px !important;
-    box-shadow: none !important;
-}
+This makes the system highly valuable for environmental agencies, researchers, and policymakers.
+""")
 
-/* Dropdown list panel (when expanded) */
-div[data-testid="stHorizontalBlock"] div[role="listbox"],
-div[role="listbox"],
-div[role="presentation"] .rc-virtual-list {
-    background-color: #ffffff !important;
-    color: #111 !important;
-}
+    img_path = Path("assets/enviro_dashboard.png")
+    if img_path.exists():
+        st.image(str(img_path), width=450)
 
-/* Options inside dropdown */
-div[role="option"],
-div[role="option"] * {
-    background-color: #ffffff !important;
-    color: #111 !important;
-}
+# -----------------------------------------------------------
+# PREDICT SOURCE PAGE
+# -----------------------------------------------------------
+elif menu == "Predict Source":
+    st.markdown("<h1>🔍 Predict Pollution Source</h1>", unsafe_allow_html=True)
 
-/* Make placeholder and selected text dark */
-::placeholder { color: #666 !important; opacity: 1 !important; }
-.stSelectbox, .stTextInput, .stDateInput, .stMultiSelect {
-    color: #111 !important;
-}
-
-/* Remove any dark theme backgrounds applied deeper */
-.css-1n76uvr, .css-1vencpc, .css-1aumxhk, .css-ocqkz7 {
-    background: transparent !important;
-}
-
-/* Tweak select caret color */
-div[data-baseweb="select"] svg { fill: #111 !important; }
-
-/* Buttons hover */
-.stButton > button:hover {
-    background-color: #f3f4f6 !important;
-}
-
-/* Ensure charts and headings are readable */
-h1, h2, h3, h4, h5, h6 { color: #111 !important; text-shadow: none !important; }
-
-/* Sidebar scrollbar */
-section[data-testid="stSidebar"] ::-webkit-scrollbar { width: 10px; }
-section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 6px; }
-</style>
-""", unsafe_allow_html=True)
-
-# ------------------- Robust data loading -------------------
-@st.cache_data
-def load_data():
-    df = pd.read_csv("data/labeled_pollution_data.csv")
-    df.columns = [c.strip() for c in df.columns]
-
-    # detect datetime-like column
-    def find_dt_col(cols):
-        cands = ["timestamp", "date", "time", "datetime"]
-        lower = {c.lower(): c for c in cols}
-        for c in cands:
-            if c in lower:
-                return lower[c]
-        for c in cols:
-            if "date" in c.lower() or "time" in c.lower():
-                return c
-        return None
-
-    dt_col = find_dt_col(df.columns)
-
-    if dt_col:
-        df[dt_col] = df[dt_col].astype(str).str.strip()
-        df[dt_col] = df[dt_col].replace({"": pd.NA, "NA": pd.NA, "N/A": pd.NA})
-        df["Timestamp"] = pd.to_datetime(df[dt_col], errors="coerce", dayfirst=True, infer_datetime_format=True)
-    else:
-        df["Timestamp"] = pd.to_datetime("now")
-
-    if "city" in df.columns:
-        df["city"] = df["city"].astype(str).str.strip()
-
-    for col in ["latitude", "longitude"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    if "source_label" in df.columns and "source" not in df.columns:
-        df["source"] = df["source_label"]
-
-    return df
-
-df = load_data()
-
-# pollutant mapping
-POLLUTANT_MAP = {
-    "PM2.5": "PM2.5",
-    "PM10": "PM10",
-    "NO2": "NO2",
-    "SO2": "SO2",
-    "CO": "CO",
-    "O3": "O3",
-}
-
-# title
-st.markdown("""
-<div class="title-container">
-    <h1>EnviroScan: AI-Powered Pollution Dashboard</h1>
-</div>
-""", unsafe_allow_html=True)
-
-# session defaults
-if "section" not in st.session_state:
-    st.session_state["section"] = "Pollution Trends"
-if "filters_applied" not in st.session_state:
-    st.session_state["filters_applied"] = False
-
-# ------------------- SIDEBAR -------------------
-with st.sidebar:
-    st.markdown("### Navigation")
-    section_choice = st.radio(
-        "Choose View:",
-        ("Pollution Trends", "Source Distribution", "Map & Alerts", "Future Prediction"),
-        index=0
+    model_choice = st.selectbox(
+        "Select Model",
+        ["Random Forest", "Logistic Regression", "XGBoost", "Decision Tree"]
     )
-    st.session_state["section"] = section_choice
 
-    st.markdown("---")
-    st.header("Filters")
+    # load model (will raise if model files missing)
+    model, encoder = load_model(model_choice)
 
-    if "city" in df.columns:
-        cities = df["city"].dropna().unique().tolist()
-        selected_city = st.selectbox("Select a city:", cities)
+    # create two equal columns and put content inside them (no empty placeholders)
+    col1, col2 = st.columns([1, 1])
+
+    # ---------------- COLUMN 1 ----------------
+    with col1:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🌫 Pollution Levels")
+        PM25 = st.slider("PM2.5", 0, 500, 80)
+        PM10 = st.slider("PM10", 0, 600, 120)
+        NO2 = st.slider("NO2", 0, 200, 30)
+        SO2 = st.slider("SO2", 0, 100, 8)
+        CO = st.slider("CO", 0.0, 10.0, 1.2)
+        O3 = st.slider("O3", 0, 200, 25)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🌦 Weather Conditions")
+        temp = st.slider("Temperature (°C)", -10, 50, 28)
+        humidity = st.slider("Humidity (%)", 0, 100, 60)
+        wind_speed = st.slider("Wind Speed (m/s)", 0, 20, 2)
+        season = st.selectbox("Season", ["summer", "winter", "autumn", "monsoon"])
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ---------------- COLUMN 2 ----------------
+    with col2:
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.subheader("🌬 Wind & Distance Factors")
+        wind_dir = st.slider("Wind Direction (°)", 0, 360, 180)
+        dist_to_road = st.slider("Distance to Road (km)", 0.0, 5.0, 0.2)
+        dist_to_industry = st.slider("Distance to Industry (km)", 0.0, 20.0, 5.0)
+        fire_nearby = st.selectbox("Fire Nearby?", [0, 1])
+        fire_min_dist_km = st.slider("Nearest Fire Distance (km)", 0, 50, 15)
+        traffic = st.slider("Traffic Index", 0, 100, 40)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # -----------------------------------------------------------
+    # PREDICT BUTTON
+    # -----------------------------------------------------------
+    if st.button("Predict Pollution Source"):
+
+        wind_dir_rad = math.radians(wind_dir)
+        wind_u = wind_speed * math.cos(wind_dir_rad)
+        wind_v = wind_speed * math.sin(wind_dir_rad)
+
+        data = {
+            "season": season,
+            "PM2.5": PM25, "PM10": PM10,
+            "NO2": NO2, "SO2": SO2,
+            "CO": CO, "O3": O3,
+            "temp": temp, "humidity": humidity,
+            "wind_speed": wind_speed,
+            "wind_dir": wind_dir,
+            "wind_dir_rad": wind_dir_rad,
+            "wind_u": wind_u,
+            "wind_v": wind_v,
+            "dist_to_road": dist_to_road,
+            "dist_to_industry": dist_to_industry,
+            "dist_to_farm": 1.0,
+            "fire_nearby": fire_nearby,
+            "fire_min_dist_km": fire_min_dist_km,
+            "traffic_index": traffic,
+            "city": "UnknownCity",
+            "location_id": "LOC_0",
+            "year": 2020, "month": 1, "dayofyear": 1,
+
+            # Required placeholder scaled features
+            "PM2.5_s": 0, "PM10_s": 0, "NO2_s": 0, "SO2_s": 0,
+            "CO_s": 0, "O3_s": 0, "temp_s": 0, "humidity_s": 0,
+            "wind_speed_s": 0, "traffic_index_s": 0,
+            "dist_to_road_s": 0, "dist_to_industry_s": 0,
+            "dist_to_farm_s": 0, "fire_min_dist_km_s": 0,
+            "road_bearing": 0, "industry_bearing": 0,
+            "farm_bearing": 0, "fire_bearing": 0,
+            "align_r": 0, "align_i": 0,
+            "align_f": 0, "align_fire": 0,
+        }
+
+        df = pd.DataFrame([data])
+        pred = model.predict(df)[0]
+        label = encoder.inverse_transform([pred])[0]
+
+        st.success(f"🌱 Predicted Pollution Source: **{label}**")
+
+# -----------------------------------------------------------
+# MODEL INSIGHTS PAGE
+# -----------------------------------------------------------
+elif menu == "Model Insights":
+    st.markdown("<h1>📈 Model Insights</h1>", unsafe_allow_html=True)
+
+    model_select = st.selectbox(
+        "Choose Model",
+        ["Random Forest", "Logistic Regression", "XGBoost", "Decision Tree"]
+    )
+
+    result_folders = {
+        "Random Forest": "results/random_forest",
+        "Logistic Regression": "results/logistic_regression",
+        "XGBoost": "results/xgboost_model",
+        "Decision Tree": "results/decision_tree",
+    }
+
+    img_folder = Path(result_folders[model_select])
+
+    descriptions = {
+        "confusion_matrix": """
+### 🟦 Confusion Matrix  
+Shows how accurately the model predicts each pollution source.  
+- Diagonal = correct predictions  
+- Off-diagonal = misclassifications  
+""",
+
+        "classification_report": """
+### 📘 Classification Report  
+Shows Precision, Recall, and F1-score for each pollution class.  
+Higher values = better performance.  
+""",
+
+        "feature_importance": """
+### ⭐ Feature Importance  
+Displays which features influence the model the most.  
+Helps understand how the model makes decisions.  
+""",
+
+        "cv_f1_scores": """
+### 🔁 Cross-Validation F1 Scores  
+Indicates how stable the model is across multiple folds.  
+Stable scores mean the model generalizes well.  
+"""
+    }
+
+    if not img_folder.exists():
+        st.error("⚠️ No insight results found for this model.")
     else:
-        selected_city = st.text_input("Enter city name:")
+        for img_file in sorted(os.listdir(img_folder)):
+            if img_file.endswith((".png", ".jpg")):
+                img_name = img_file.replace(".png", "")
+                clean_title = img_name.replace("_", " ").title()
 
-    if df["Timestamp"].notna().any():
-        min_dt = df["Timestamp"].min().date()
-        max_dt = df["Timestamp"].max().date()
-    else:
-        min_dt = datetime.date.today()
-        max_dt = datetime.date.today()
+                st.subheader(clean_title)
+                st.image(str(img_folder / img_file))
 
-    start_date = st.date_input("Start date", value=min_dt, min_value=min_dt, max_value=max_dt)
-    end_date = st.date_input("End date", value=max_dt, min_value=min_dt, max_value=max_dt)
+                # Show matching description
+                for key in descriptions:
+                    if key in img_name:
+                        st.markdown(descriptions[key])
+                        break
 
-    if st.button("Apply City Filter"):
-        st.session_state["filters_applied"] = True
+                st.markdown("---")
 
-# ------------------- Filtering -------------------
-try:
-    if st.session_state.get("filters_applied", False):
-        if "city" in df.columns and selected_city:
-            sel_norm = str(selected_city).strip().lower()
-            df_city = df[df["city"].astype(str).str.strip().str.lower() == sel_norm]
-        else:
-            df_city = df.copy()
+# -----------------------------------------------------------
+# HISTORICAL DATA PAGE
+# -----------------------------------------------------------
+elif menu == "Historical Data":
+    st.markdown("<h1>📜 Historical Data Explorer</h1>", unsafe_allow_html=True)
+    st.info("Upload or visualize historical pollution datasets here (coming soon).")
 
-        df_filtered = df_city[
-            (df_city["Timestamp"].dt.date >= start_date) &
-            (df_city["Timestamp"].dt.date <= end_date)
-        ]
-    else:
-        # default behaviour: filter by provided dates (change to df.head(0) if you want empty until apply)
-        df_filtered = df[
-            (df["Timestamp"].dt.date >= start_date) &
-            (df["Timestamp"].dt.date <= end_date)
-        ]
-except Exception:
-    df_filtered = df.copy()
+# -----------------------------------------------------------
+# ABOUT PAGE
+# -----------------------------------------------------------
+elif menu == "About Project":
+    st.markdown("<h1>ℹ️ About EnviroScan</h1>", unsafe_allow_html=True)
+    st.markdown("""
+### 🌟 Purpose of the Project  
+Most existing pollution monitoring systems only measure how bad the air quality is,  
+but they do not identify **why** pollution is increasing. EnviroScan solves this using AI + geospatial analytics.
 
-# read section
-section = st.session_state["section"]
+### 🎯 Key Outcomes  
+- Predicts pollution source categories  
+- Creates pollution heatmaps  
+- Triggers alerts  
+- Offers interactive visual analytics  
 
-# -------- Pollutant Trends --------
-if section == "Pollution Trends":
-    pollutants = list(POLLUTANT_MAP.keys())
-    pollutant = st.selectbox("Select pollutant:", pollutants)
-    col = POLLUTANT_MAP[pollutant]
+### 🧠 Modules Implemented  
+- Data Collection (OpenAQ, OpenWeather, OSMnx)  
+- Feature Engineering  
+- Source Labeling  
+- ML Models (RF, XGBoost, LR, DT)  
+- Geospatial Mapping  
+- Interactive Dashboard  
 
-    if col in df_filtered.columns:
-        if "city" in df_filtered.columns and selected_city:
-            sel_norm = str(selected_city).strip().lower()
-            trend_df = df_filtered[df_filtered["city"].astype(str).str.strip().str.lower() == sel_norm]
-        else:
-            trend_df = df_filtered.copy()
+### 🏗 System Architecture  
+API Data → Cleaning → Feature Engineering → Labeling → Model → Dashboard  
 
-        if not trend_df.empty:
-            trend_data = trend_df.groupby("Timestamp")[col].mean().reset_index()
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(trend_data["Timestamp"], trend_data[col], marker="o", linestyle="-")
-            ax.set_title(f"{pollutant} Trend")
-            ax.set_xlabel("Date and Time")
-            ax.set_ylabel(pollutant)
-            ax.grid(True, linestyle="--", alpha=0.6)
-            plt.xticks(rotation=45, ha="right")
-            plt.tight_layout()
-            st.pyplot(fig)
-        else:
-            st.info("No data available for the selected filters.")
-    else:
-        st.warning(f"Selected pollutant '{pollutant}' not available in the filtered data.")
-
-# -------- Source Distribution --------
-elif section == "Source Distribution":
-    if "source" not in df_filtered.columns:
-        st.info("No 'source' column available in the data to show distribution.")
-    else:
-        if "city" in df_filtered.columns and selected_city:
-            sel_norm = str(selected_city).strip().lower()
-            src_df = df_filtered[df_filtered["city"].astype(str).str.strip().str.lower() == sel_norm]
-        else:
-            src_df = df_filtered.copy()
-
-        src = src_df["source"].value_counts()
-        if src.empty:
-            st.info("No source data available for this city/selection.")
-        else:
-            labels = src.index.tolist()
-            sizes = src.values.tolist()
-            fig, ax = plt.subplots(figsize=(7, 7))
-            ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=90)
-            ax.axis("equal")
-            plt.title(f"Source Distribution")
-            st.pyplot(fig)
-
-# -------- Map & Alerts --------
-elif section == "Map & Alerts":
-    st.subheader(f"Map & Alerts")
-    if "city" in df_filtered.columns and selected_city:
-        sel_norm = str(selected_city).strip().lower()
-        selected_city_data = df_filtered[df_filtered["city"].astype(str).str.strip().str.lower() == sel_norm].copy()
-    else:
-        selected_city_data = df_filtered.copy()
-
-    if selected_city_data.empty:
-        st.info("No data available for selected city/selection to show map.")
-    else:
-        pollutant_cols = [col for col in POLLUTANT_MAP.values() if col in selected_city_data.columns]
-        thresholds = {"PM2.5": 60, "PM10": 100, "NO2": 40, "SO2": 20, "CO": 10, "O3": 70}
-        alerts = []
-        for disp, col in POLLUTANT_MAP.items():
-            if col in selected_city_data.columns:
-                max_val = selected_city_data[col].max()
-                thr = thresholds.get(disp)
-                if pd.notnull(max_val) and thr is not None and max_val > thr:
-                    alerts.append(f"{disp}: Max {max_val:.1f} (> {thr})")
-
-        if "latitude" in selected_city_data.columns and "longitude" in selected_city_data.columns:
-            mean_lat = selected_city_data["latitude"].dropna().mean()
-            mean_lon = selected_city_data["longitude"].dropna().mean()
-            if pd.isna(mean_lat) or pd.isna(mean_lon):
-                m = folium.Map(location=[15.9129, 79.7400], zoom_start=7)
-            else:
-                m = folium.Map(location=[mean_lat, mean_lon], zoom_start=11)
-
-            mc = MarkerCluster().add_to(m)
-            for _, row in selected_city_data.iterrows():
-                if pd.notnull(row.get("latitude")) and pd.notnull(row.get("longitude")):
-                    popup_parts = []
-                    for disp, col in POLLUTANT_MAP.items():
-                        if col in row.index and pd.notnull(row[col]):
-                            try:
-                                popup_parts.append(f"{disp}: {row[col]:.1f}")
-                            except Exception:
-                                popup_parts.append(f"{disp}: {row[col]}")
-                    src_text = row.get("source", "Unknown")
-                    popup = "<br>".join(popup_parts + [f"Source: {src_text}"])
-                    try:
-                        folium.CircleMarker(
-                            location=[float(row["latitude"]), float(row["longitude"])],
-                            radius=7,
-                            color="#009688",
-                            fill=True,
-                            fill_opacity=0.75,
-                            popup=f"{row.get('city', 'City')}<br>{popup}"
-                        ).add_to(mc)
-                    except Exception:
-                        continue
-
-            # heatmap
-            heatcols = [c for c in pollutant_cols]
-            avg_pollutant = selected_city_data[["latitude", "longitude"] + heatcols].dropna()
-            heat_data = [
-                [r["latitude"], r["longitude"], np.mean([r[c] for c in heatcols])]
-                for _, r in avg_pollutant.iterrows()
-            ]
-            if heat_data:
-                max_val = max([h[2] for h in heat_data])
-                HeatMap(heat_data, radius=12, blur=16, max_val=max_val).add_to(m)
-
-            st_folium(m, width=800, height=500)
-
-            if alerts:
-                st.warning(";  ".join(alerts))
-            else:
-                st.success("All pollutant levels within safe limits in selected city.")
-        else:
-            st.info("No spatial (latitude/longitude) data available for selected city/selection to show map.")
-
-# -------- Future Prediction --------
-elif section == "Future Prediction":
-    st.subheader("Future AQI Prediction")
-    pollutants = list(POLLUTANT_MAP.keys())
-    pred_pollutant = st.selectbox("Select pollutant:", pollutants, key="prediction_pollutant")
-    pred_col = POLLUTANT_MAP.get(pred_pollutant)
-
-    if df["Timestamp"].notna().any():
-        min_pred_date = max(df["Timestamp"].dt.date.max(), datetime.date.today())
-    else:
-        min_pred_date = datetime.date.today()
-    max_pred_date = min_pred_date + datetime.timedelta(days=90)
-    future_date = st.date_input("Select future date for prediction", value=min_pred_date, min_value=min_pred_date, max_value=max_pred_date, key="future_date_predict")
-    predict_button = st.button("Predict AQI")
-    if predict_button:
-        if "city" in df.columns and selected_city:
-            sel_norm = str(selected_city).strip().lower()
-            pred_df = df[df["city"].astype(str).str.strip().str.lower() == sel_norm]
-        else:
-            pred_df = df.copy()
-
-        if pred_col not in pred_df.columns:
-            st.warning(f"No historical data for {pred_pollutant} to make predictions.")
-        else:
-            if not pred_df.empty:
-                pred_trend = pred_df.groupby("Timestamp")[pred_col].mean().reset_index()
-                last_values = pred_trend[pred_col].tail(5)
-                predicted_value = last_values.mean() if not last_values.empty else None
-
-                def get_aqi_category(val, pollutant):
-                    if val is None or pd.isna(val):
-                        return "Unknown"
-                    if pollutant in ["PM2.5", "PM10"]:
-                        if val <= 50: return "Good"
-                        elif val <= 100: return "Satisfactory"
-                        elif val <= 250: return "Moderate"
-                        elif val <= 350: return "Poor"
-                        else: return "Very Poor"
-                    elif pollutant == "NO2":
-                        if val <= 40: return "Good"
-                        elif val <= 80: return "Satisfactory"
-                        elif val <= 180: return "Moderate"
-                        elif val <= 280: return "Poor"
-                        else: return "Very Poor"
-                    elif pollutant == "SO2":
-                        if val <= 20: return "Good"
-                        elif val <= 40: return "Satisfactory"
-                        elif val <= 80: return "Moderate"
-                        elif val <= 380: return "Poor"
-                        else: return "Very Poor"
-                    elif pollutant == "CO":
-                        if val <= 1: return "Good"
-                        elif val <= 2: return "Satisfactory"
-                        elif val <= 10: return "Moderate"
-                        elif val <= 17: return "Poor"
-                        else: return "Very Poor"
-                    elif pollutant == "O3":
-                        if val <= 50: return "Good"
-                        elif val <= 100: return "Satisfactory"
-                        elif val <= 168: return "Moderate"
-                        elif val <= 208: return "Poor"
-                        else: return "Very Poor"
-                    return "Unknown"
-
-                aqi_category = get_aqi_category(predicted_value, pred_pollutant) if predicted_value is not None else "Unknown"
-                if predicted_value is not None and not pd.isna(predicted_value):
-                    st.success(f"⚡ Forecasted AQI: {predicted_value:.2f} ({aqi_category})")
-                    fig, ax = plt.subplots(figsize=(7,4))
-                    ax.scatter([future_date], [predicted_value], s=200)
-                    ax.set_title(f'Future Prediction for {pred_pollutant} in {selected_city}')
-                    ax.set_xlabel('Date')
-                    ax.set_ylabel(pred_pollutant)
-                    ax.grid(True, linestyle='--', alpha=0.5)
-                    st.pyplot(fig)
-                else:
-                    st.warning("Insufficient historical values to produce a prediction.")
-            else:
-                st.warning("No data for predictions.")
-
-# ------------------- Download -------------------
-csv_bytes = df_filtered.to_csv(index=False).encode("utf-8")
-st.download_button("Download filtered data", csv_bytes, "pollution_report.csv", "text/csv")
+### 📝 Deliverables  
+- ML models  
+- Dashboard  
+- Heatmaps  
+- Documentation  
+""")
