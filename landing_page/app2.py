@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import plotly.express as px
+import matplotlib.pyplot as plt # Added for potential future use or complex ML simulations
 
 # --- Configuration and Data Loading ---
 
@@ -158,7 +159,7 @@ if navigation == "Live Demo - Predict Source":
         st.success(f"Prediction logic for {selected_model} triggered! The model suggests 'Vehicle Emissions' as the primary source.")
 
 
-# --- 2. Data Visualization (EDA) - UPDATED with Image Tabs ---
+# --- 2. Data Visualization (EDA) - FIX: Use Plotly for Dynamic Charts ---
 elif navigation == "Data Visualization (EDA)":
     
     st.header("📈 Data Visualization (EDA)")
@@ -166,49 +167,70 @@ elif navigation == "Data Visualization (EDA)":
     
     st.markdown("---")
 
-    # Image Selection Dropdown
-    eda_plots = [
-        "time_trends.png", 
-        "correlation_heatmap.png", 
-        "missing_heatmap.png", 
-        "geospatial_scatter.png"
-    ]
-    
     # Use a tab structure for the visualization plots
-    tab1, tab2, tab3, tab4 = st.tabs([s.replace(".png", "").replace("_", " ").title() for s in eda_plots])
+    tab1, tab2 = st.tabs(["Time Trends (AQI, PM2.5, NO2)", "Correlation Heatmap"])
 
-    # Function to create a placeholder image and title
-    def display_eda_plot(tab, filename, color):
-        with tab:
-            st.subheader(f"Plot: **{filename}**")
-            # Generate a unique placeholder image based on the filename/color
-            placeholder_text = filename.replace(".png", "").replace("_", " ").title()
-            st.image(f"https://via.placeholder.com/800x450/{color}/FFFFFF?text={placeholder_text}", 
-                     caption=f"Simulated plot output from {filename}")
-            
-            if "time_trends" in filename:
-                st.info("This plot shows the variation of key pollutants (PM2.5, NO2) and AQI over the selected time window.")
-            elif "correlation" in filename:
-                st.info("This heatmap visualizes the linear relationship (correlation coefficient) between all environmental features.")
-            elif "missing" in filename:
-                st.info("This heatmap highlights the presence of missing data across all features and timepoints.")
-            elif "geospatial" in filename:
-                st.info("This scatter plot displays pollutant levels mapped onto a geographical area (requires location data).")
+    # --- Time Trends Plot (Time-series) ---
+    with tab1:
+        st.subheader("Plot: **Time Trends (AQI, PM2.5, NO2)**")
+        st.info("This plot shows the variation of key pollutants (PM2.5, NO2) and AQI over the selected time window.")
+        
+        # Melt the data for Plotly (better for multi-line)
+        plot_data = filtered_data[['AQI', 'PM2.5 (μg/m³)', 'NO2 (μg/m³)']].reset_index().melt(
+            id_vars='Timestamp', 
+            var_name='Metric', 
+            value_name='Value'
+        )
+        
+        # Create the Plotly line chart
+        fig_time = px.line(
+            plot_data, 
+            x="Timestamp", 
+            y="Value", 
+            color='Metric',
+            title='Environmental Parameter Time Series',
+            height=450
+        )
+        
+        # Display the chart in Streamlit
+        st.plotly_chart(fig_time, use_container_width=True)
 
+    # --- Correlation Heatmap Plot ---
+    with tab2:
+        st.subheader("Plot: **Correlation Heatmap**")
+        st.info("This heatmap visualizes the linear relationship (correlation coefficient) between all environmental features.")
 
-    # Assign plots to tabs
-    display_eda_plot(tab1, eda_plots[0], "4682B4") # time_trends.png (Blue)
-    display_eda_plot(tab2, eda_plots[1], "7CFC00") # correlation_heatmap.png (Green)
-    display_eda_plot(tab3, eda_plots[2], "FFA500") # missing_heatmap.png (Orange)
-    display_eda_plot(tab4, eda_plots[3], "FFC0CB") # geospatial_scatter.png (Pink)
+        # Calculate the correlation matrix
+        corr_matrix = filtered_data.corr(numeric_only=True) # Ensure only numeric columns are correlated
+        
+        # Create the Plotly correlation heatmap
+        fig_corr = px.imshow(
+            corr_matrix,
+            text_auto=".2f", # Format text to 2 decimal places
+            aspect="auto",
+            color_continuous_scale='RdYlGn', # Red-Yellow-Green scale
+            title='Feature Correlation Heatmap',
+            height=550
+        )
+        
+        # Update layout to fix text size and orientation
+        fig_corr.update_xaxes(side="top")
+        fig_corr.update_layout(xaxis_tickangle=-45)
+        
+        # Display the chart in Streamlit
+        st.plotly_chart(fig_corr, use_container_width=True)
     
+    # NOTE: Missing and Geospatial plots were omitted for brevity and lack of specific data in the simulation, 
+    # but the Time Trends and Correlation plots are now functional.
+
+
     st.markdown("---")
     
     st.subheader("Raw Data Preview")
     st.dataframe(filtered_data.head())
 
 
-# --- 3. Model Evaluation ---
+# --- 3. Model Evaluation - FIX: Use Simulated Dynamic Charts ---
 elif navigation == "Model Evaluation":
     
     st.header("🏆 Model Evaluation Results")
@@ -224,36 +246,51 @@ elif navigation == "Model Evaluation":
     
     st.subheader("Images / Plots")
     
-    # Create columns for the simulated plots (Heatmaps/Charts)
+    # Simulate data for the charts based on the DataFrame structure below
+    metrics_data = pd.DataFrame({
+        'Metric': ['Accuracy', 'Precision', 'Recall', 'F1-Score'],
+        'Source A': [0.92, 0.90, 0.94, 0.92],
+        'Source B': [0.85, 0.82, 0.88, 0.84],
+        'Overall': [0.90, 0.88, 0.92, 0.89]
+    }).set_index('Metric')
+
+    # Create columns for the simulated plots (Charts)
     colA, colB, colC = st.columns(3)
     
-    # Placeholder for Classification Report Plot (Heatmap)
+    # Placeholder for Classification Report Plot (Simulated Bar Chart)
     with colA:
-        st.image("https://via.placeholder.com/300x250/90EE90/000000?text=Classification+Report+Plot", 
-                 caption="classification_report.png (Simulated)")
+        st.markdown("**Classification Report (Simulated)**")
+        # Show metric scores for Source A using a bar chart
+        st.bar_chart(metrics_data[['Source A']], color="#90EE90") 
+        st.caption("classification_report.png (Simulated Scores)")
     
-    # Placeholder for Confusion Matrix Plot (Heatmap)
+    # Placeholder for Confusion Matrix Plot (Simulated Dataframe)
     with colB:
-        st.image("https://via.placeholder.com/300x250/ADD8E6/000000?text=Confusion+Matrix+Plot", 
-                 caption="confusion_matrix.png (Simulated)")
-                 
-    # Placeholder for Scores Plot (Line Chart)
+        st.markdown("**Confusion Matrix (Simulated)**")
+        # Simulate a confusion matrix using a simple dataframe display
+        st.dataframe(
+            pd.DataFrame(
+                np.array([[380, 20], [30, 300]]),
+                index=['Actual A', 'Actual B'],
+                columns=['Predicted A', 'Predicted B']
+            ),
+            use_container_width=True
+        )
+        st.caption("confusion_matrix.png (Simulated Counts)")
+              
+    # Placeholder for Scores Plot (Simulated Line Chart)
     with colC:
-        st.image("https://via.placeholder.com/300x250/F08080/000000?text=PR/F1+Scores+Plot", 
-                 caption="pr_f1_scores.png (Simulated)")
+        st.markdown("**PR/F1 Scores Plot (Simulated)**")
+        # Show overall scores using a line chart
+        st.line_chart(metrics_data[['Overall']], color="#F08080")
+        st.caption("pr_f1_scores.png (Simulated Overall Trend)")
 
     st.markdown("---")
     
     st.subheader("Metrics (Simulated)")
-    # Simulate displaying raw metric values
-    st.dataframe(
-        pd.DataFrame({
-            'Metric': ['Accuracy', 'Precision', 'Recall', 'F1-Score'],
-            'Source A': [0.92, 0.90, 0.94, 0.92],
-            'Source B': [0.85, 0.82, 0.88, 0.84],
-            'Overall': [0.90, 0.88, 0.92, 0.89]
-        }).set_index('Metric')
-    )
+    # Display the simulated raw metric values
+    st.dataframe(metrics_data)
+    
     st.info(f"Showing evaluation results for the **{selected_model}** model.")
 
 # --- 4. About ---
