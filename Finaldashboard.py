@@ -591,11 +591,12 @@ elif page == "🔍 Pollution Predictor":
 # -------------------------------------------------------------
 # 📽 NEW TAB: ADVANCED VISUAL DASHBOARD
 # -------------------------------------------------------------
-elif page == " Advanced Visual Dashboard":
+elif page == "📽 Advanced Visual Dashboard":
 
     st.markdown("""
         <div style="text-align:center; padding: 10px;">
-            <h1>🌍 AI-Powered <span style="color:#1E8449">EnviroScan Dashboard</span></h1>
+            <h1>🌍 AI-Powered 
+            <span style="color:#1E8449">EnviroScan Dashboard</span></h1>
             <h3>Smart • Sustainable • Environmental Intelligence</h3>
         </div>
     """, unsafe_allow_html=True)
