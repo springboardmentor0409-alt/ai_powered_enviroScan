@@ -1,192 +1,266 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from streamlit_option_menu import option_menu
+import datetime
+import plotly.express as px
 
-if 'expanded_card' not in st.session_state:
-    # Set the initial state to None, meaning no card is expanded yet.
-    st.session_state.expanded_card = None
+# --- Configuration and Data Loading ---
 
-st.set_page_config(layout="wide")
-def local_css(file_name):
-    try:
-        # Using a context manager for reliable file reading
-        with open(file_name, encoding="utf-8") as f: 
-            css = f.read()
-            st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
-           # st.success("CSS file successfully injected!") # line for confomation css working properly
-    except FileNotFoundError:
-        st.error(f"FATAL ERROR: Could not find the CSS file at {file_name}. Please check its path.")
-local_css("style.css")
+# Set page config
+st.set_page_config(
+    page_title="EnviroScan Dashboard - Complete",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-def create_clickable_card(card_id, image_path, title, short_text):
-    """
-    Creates a clickable card that updates the session state when pressed.
-    This function should only receive the data necessary for the small card display.
-    """
+# Function to simulate data (for EDA and filtering)
+@st.cache_data(ttl=60)
+def load_and_simulate_data(rows=1000):
+    """Loads/simulates environmental data for time filtering and EDA charts."""
     
-    st.markdown(f'<div class="card-container-simple">', unsafe_allow_html=True)
+    np.random.seed(42)
+    timestamps = pd.to_datetime(pd.date_range(end=pd.Timestamp.now(), periods=rows, freq='5min'))
     
-    # Display the small card elements
-    st.image(image_path, caption=title, width=150) 
-    st.markdown(f'<p class="card-short-text">{short_text}</p>', unsafe_allow_html=True)
+    # Simulate data for plotting (PM2.5, NO2, AQI, Temperature, Humidity)
+    base_aqi = 50 + 40 * np.sin(np.linspace(0, 2 * np.pi, rows))
+    noise = np.random.normal(0, 5, rows)
+    aqi = np.maximum(20, base_aqi + noise).round(0)
     
-    # The Button is the unique element that needs a key.
-    # We now pass card_id as the primary argument.
-    if st.button("Expand", key=f"btn_{card_id}"):
-        st.session_state.expanded_card = card_id
-        # We don't need st.experimental_rerun() here as the button click
-        # already triggers a rerun by default when it returns True.
+    pm25 = np.maximum(5, (1.2 * aqi + np.random.normal(0, 3, rows))).round(1) 
+    no2 = np.maximum(10, (0.7 * aqi + 20 + np.random.normal(0, 5, rows))).round(1) 
+    temp = np.maximum(15, (25 + 0.1 * aqi + np.random.normal(0, 2, rows))).round(1)
+    humidity = np.maximum(40, (70 - 0.2 * aqi + np.random.normal(0, 3, rows))).round(1)
 
-    st.markdown(f'</div>', unsafe_allow_html=True)
-    
+    data = pd.DataFrame({
+        'Timestamp': timestamps,
+        'AQI': aqi,
+        'PM2.5 (μg/m³)': pm25,
+        'NO2 (μg/m³)': no2,
+        'Temperature (C)': temp,
+        'Humidity (%)': humidity,
+    }).set_index('Timestamp').sort_index()
+    return data
 
-with st.sidebar:
-    selected =option_menu(
-       menu_title=None,
-        options=["Home","Visualization","Contact"],
-        icons=["house","book","envelope"],
-        default_index=0
-    )
+# Load initial data
+full_data = load_and_simulate_data()
 
 
-if selected=="Home":
-    col_logo, col_title = st.columns([1.2, 7.6])
-    
-    with col_logo:
-        # Display the image in the smaller column
-        # Using the file name from your uploaded content
-        st.image("logo.png", width=170) 
+# --- Sidebar Definition ---
 
-    with col_title:
-        # The title is placed right next to the logo in the second column
-        # We added an inline style to ensure the H1 margin doesn't push it too far down
-        st.markdown(
-            ''' 
-            <h1 class="main-title-gradient" style="margin-top: 0; padding-top: 0;">
-                EnviroScan:AI-Powered Pollution Source Identifier using Geospatial Analytics
-            </h1>
-            ''',
-            unsafe_allow_html=True
-        )
+st.sidebar.title("⚙️ EnviroScan Controls")
+st.sidebar.markdown("---")
 
-    st.markdown(
-        '<h3>🎯<span class="gradient-text-only">Objective of the Project</span></h3>', 
-        unsafe_allow_html=True
-        )
-    st.write("The primary objective of the EnviroScan project is to develop an AI-powered system that uses machine learning and geospatial analytics to not only monitor pollutant levels but, more critically, to identify and predict the specific likely sources of pollution (e.g., industrial, vehicular, agricultural). This system aims to transform raw sensor data into actionable insights for environmental authorities and urban planners.")
-    st.markdown('<h3>❓ <span class="gradient-text-only">Why We Need This Project</span></h3>', unsafe_allow_html=True)
-    st.markdown("""
-        - Source Attribution Gap: Current systems measure pollution levels but fail to identify the specific sources (the "Why"), hindering effective action.
-        - Targeted Action Requirement: Authorities need to move beyond generic measures to targeted interventions (e.g., regulating a specific factory vs. general traffic control).
-        - Complex Urban Pollution: Urban pollution is a mix of sources (vehicular, industrial, natural); an intelligent system is needed to disentangle and prioritize these factors.
-        - Data-Driven Policy: The project provides the quantifiable evidence and insights necessary for effective environmental policy-making and urban planning.    
-        - Proactive Management: Enables real-time, source-specific alerts, allowing for a more proactive and timely response to high-risk pollution events.
-        """)
-    st.markdown(
-        '<h3>🚀 <span class="gradient-text-only">Future Scope</span></h3>', 
-        unsafe_allow_html=True
-        )
-    st.markdown("""
-    - Advanced Forecasting:  Implement models (like LSTM) to predict future pollution levels and source contributions hours or days in advance.
-    - Satellite and External Data Integration:  Incorporate satellite imagery and social media/citizen reports to enhance detection, especially for large-scale events like agricultural burning.
-    - Mobile Application & Enhanced Alerts:  Create a mobile app for field use and integrate advanced alerting via SMS/Voice for critical conditions.
-    - Conversational AI for Data Exploration: Integrate a Conversational Analytics Chatbot into the dashboard, allowing users (planners, inspectors) to ask complex, multi-step questions about the data in plain language (e.g., "Show the predicted industrial contribution near the river last Tuesday").
-    -  Deep Learning Migration for Source Attribution: Transition from traditional machine learning (Random Forest, XGBoost) to Deep Learning (e.g., CNN-LSTM hybrid models) to better capture complex, non-linear spatio-temporal patterns and improve source-tracing accuracy across different regions.    
-    """)
+# 1. Navigation (Matching the radio buttons from the image)
+st.sidebar.header("Navigation")
+navigation = st.sidebar.radio(
+    "Go to",
+    ["Live Demo - Predict Source", "About", "Data Visualization (EDA)", "Model Evaluation"],
+    index=0 # Default to Live Demo
+)
 
-if selected == "Visualization":
-    #st.title(f"You have selected {selected}")
-    st.markdown('<h3 class="center-heading">Geospatial Insights Gallery</h3>', unsafe_allow_html=True)
-    # --- 1. HORIZONTAL LAYOUT OF CARDS (5 boxes) ---
-    col1, col2, col3, col4, col5 = st.columns(5)
+# 2. Model Selection (Matches the dropdown from the image)
+st.sidebar.header("Model Controls")
+selected_model = st.sidebar.selectbox(
+    "Select Model (To call API)",
+    ["xgboost_model", "Random Forest", "Logistic Regression", "Decision Tree"]
+)
+
+st.sidebar.markdown("### Model files detected:")
+st.sidebar.markdown("""
+* `Model_artifact.bin`
+* `label_encoder.pklib`
+""") 
+
+st.sidebar.markdown("---") 
+
+# 3. Data Selection/Filtering 
+st.sidebar.header("📊 Data Filters (For Visualization)")
+time_range_option = st.sidebar.select_slider(
+    'Select Time Window (Last X hours)',
+    options=[1, 6, 12, 24, 48, 72],
+    value=24
+)
+end_time = full_data.index.max()
+start_time = end_time - pd.Timedelta(hours=time_range_option)
+filtered_data = full_data[full_data.index >= start_time]
+
+
+# --- Main Dashboard Content ---
+
+st.title("🌱 EnviroScan Project Dashboard")
+st.markdown("---")
+
+# --- 1. Live Demo - Predict Source ---
+if navigation == "Live Demo - Predict Source":
     
-    # Use a clearer structure for card_data
-    card_data = [
-        {"id": "card_a", "img": "no2_outliers.png", "title": "NO₂ Outliers","short": "NO2 Boxplot Outliers", "long": "This analysis highlights high-risk nitrogen dioxide outliers. The concentration spikes are correlated with specific industrial zones, suggesting primary source contributions."},
-        {"id": "card_b", "img": "o3_outliers.png", "title": "O3 Outliers", "short": "O3 Boxplot Outliers","long": "The O3 box plot shows that the median Ozone concentration is around 30, with the middle 50% clustered between 25 and 35. A significant set of data points ranging from 60 to 78 are identified as outliers, indicating periods of unusually high Ozone levels."},
-        {"id": "card_c", "img": "so2_outliers.png", "title": "SO₂ Outliers", "short": "SO2 Boxplot Outliers", "long": "This SO2 box plot shows that Sulphur Dioxide concentrations are extremely low, with the middle 50% of the data close to zero. The plot is severely right-skewed and features a large number of extreme outliers extending up to around 400."},
-        {"id": "card_d", "img": "PM2.5_outliers.png", "title": "PM2.5 Outliers", "short": "PM2.5 Boxplot Outliers", "long": "This PM2.5 box plot shows that Particulate Matter concentrations are very low (median near zero), with the core data being highly concentrated. The plot is heavily right-skewed, displaying numerous extreme outliers that reach up to approximately 2100."},
-        {"id": "card_e", "img": "pm10_outliers.png", "title": "PM10 Outliers", "short": "PM10 Boxplot Outliers", "long": "The PM10 box plot indicates that the median Particulate Matter concentration is very low (near zero), showing most data points are clustered at the bottom end. The distribution is extremely right-skewed with many outliers, some reaching concentrations as high as 5000."}
-    ]
-    # Create the cards in the columns
-    # We now explicitly pass the required arguments for the *small* card display.
-    with col1: 
-        create_clickable_card(
-            card_id=card_data[0]["id"], 
-            image_path=card_data[0]["img"], 
-            title=card_data[0]["title"], 
-            short_text=card_data[0]["short"]
-        )
-    with col2: 
-        create_clickable_card(
-            card_id=card_data[1]["id"], 
-            image_path=card_data[1]["img"], 
-            title=card_data[1]["title"], 
-            short_text=card_data[1]["short"]
-        )
-    with col3: 
-        create_clickable_card(
-            card_id=card_data[2]["id"], 
-            image_path=card_data[2]["img"], 
-            title=card_data[2]["title"], 
-            short_text=card_data[2]["short"]
-        )
-    with col4: 
-        create_clickable_card(
-            card_id=card_data[3]["id"], 
-            image_path=card_data[3]["img"], 
-            title=card_data[3]["title"], 
-            short_text=card_data[3]["short"]
-        )
-    with col5: 
-        create_clickable_card(
-            card_id=card_data[4]["id"], 
-            image_path=card_data[4]["img"], 
-            title=card_data[4]["title"], 
-            short_text=card_data[4]["short"]
-        )
+    st.header("🔬 Live Demo – Predict Source")
+    st.subheader("Input Environmental Parameters")
     
-    st.markdown("---") # Separator line
-    
-    # --- 2. THE EXPANDED CENTRAL VIEW (MODAL SIMULATION) ---
-    
-    if st.session_state.expanded_card:
-        # Retrieve the data for the currently selected card directly from card_data
-        selected_data = next((item for item in card_data if item["id"] == st.session_state.expanded_card), None)
+    st.markdown("---")
+
+    # Use st.form for the input structure
+    with st.form(key='environmental_input_form'):
         
-        if selected_data:
-            # Create a large container in the middle
-            center_col, content_col, end_col = st.columns([1, 4, 1])
+        today = datetime.date.today()
+        
+        # Row 1: Date, PM2.5, Temperature
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.date_input("Date", today)
+        with col2:
+            st.number_input("PM2.5", value=100.00, step=1.0) 
+        with col3:
+            st.number_input("Temperature (C)", value=25.00, step=0.1)
+        
+        # Row 2: City, PM10, Humidity
+        col4, col5, col6 = st.columns(3)
+        with col4:
+            st.text_input("City", "Delhi")
+        with col5:
+            st.number_input("PM10", value=180.00, step=1.0) 
+        with col6:
+            st.number_input("Humidity (%)", value=50.00, step=0.1)
+
+        # Row 3: Location, NO2, Wind Speed
+        col7, col8, col9 = st.columns(3)
+        with col7:
+            st.text_input("Location", "LOC. 001") 
+        with col8:
+            st.number_input("NO2", value=40.00, step=0.1)
+        with col9:
+            st.number_input("Wind Speed (km/h)", value=5.00, step=0.1)
+
+        # Row 4: Latitude, SO2, Wind Direction
+        col10, col11, col12 = st.columns(3)
+        with col10:
+            st.number_input("Latitude", value=28.6100, step=0.0001)
+        with col11:
+            st.number_input("SO2", value=15.00, step=0.1)
+        with col12:
+            st.text_input("Wind Direction", "S")
+
+        # Row 5: Longitude, CO, Traffic Index
+        col13, col14, col15 = st.columns(3)
+        with col13:
+            st.number_input("Longitude", value=77.2300, step=0.0001)
+        with col14:
+            st.number_input("CO", value=8.00, step=0.1)
+        with col15:
+            st.number_input("Traffic Index", value=120.00, step=1.0)
+
+
+        st.markdown("---")
+        
+        # Prediction Button
+        predict_button = st.form_submit_button("Predict Source")
+
+    if predict_button:
+        st.success(f"Prediction logic for {selected_model} triggered! The model suggests 'Vehicle Emissions' as the primary source.")
+
+
+# --- 2. Data Visualization (EDA) - UPDATED with Image Tabs ---
+elif navigation == "Data Visualization (EDA)":
+    
+    st.header("📈 Data Visualization (EDA)")
+    st.subheader(f"Exploratory Analysis Plots (Last {time_range_option} Hours)")
+    
+    st.markdown("---")
+
+    # Image Selection Dropdown
+    eda_plots = [
+        "time_trends.png", 
+        "correlation_heatmap.png", 
+        "missing_heatmap.png", 
+        "geospatial_scatter.png"
+    ]
+    
+    # Use a tab structure for the visualization plots
+    tab1, tab2, tab3, tab4 = st.tabs([s.replace(".png", "").replace("_", " ").title() for s in eda_plots])
+
+    # Function to create a placeholder image and title
+    def display_eda_plot(tab, filename, color):
+        with tab:
+            st.subheader(f"Plot: **{filename}**")
+            # Generate a unique placeholder image based on the filename/color
+            placeholder_text = filename.replace(".png", "").replace("_", " ").title()
+            st.image(f"https://via.placeholder.com/800x450/{color}/FFFFFF?text={placeholder_text}", 
+                     caption=f"Simulated plot output from {filename}")
             
-            with content_col:
-                # Add a button to close the modal
-                if st.button("Close ❌", key="close_modal_btn"):
-                    st.session_state.expanded_card = None
-                    #st.experimental_rerun()
-                    
-                st.markdown('<div class="expanded-modal-box">', unsafe_allow_html=True)
-                st.subheader(selected_data['title'])
-                st.markdown("---")
-                st.image(selected_data['img'], use_container_width=True) 
-                st.markdown(f'<p class="modal-text">{selected_data["long"]}</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-    # -----------------------------------------------------------------    
-    st.image("daily_pollutant_trends.png")
-    st.markdown("---") # Separator line
-    # -----------------------------------------------------------------
-    st.subheader("Geospatial Distribution and Numeric Feature Relationships")
+            if "time_trends" in filename:
+                st.info("This plot shows the variation of key pollutants (PM2.5, NO2) and AQI over the selected time window.")
+            elif "correlation" in filename:
+                st.info("This heatmap visualizes the linear relationship (correlation coefficient) between all environmental features.")
+            elif "missing" in filename:
+                st.info("This heatmap highlights the presence of missing data across all features and timepoints.")
+            elif "geospatial" in filename:
+                st.info("This scatter plot displays pollutant levels mapped onto a geographical area (requires location data).")
 
-    plot_col1, plot_col2 = st.columns(2) 
-    with plot_col1:
-        st.image("Geospatial_scatter.png", 
-             caption="Geospatial Scatter — Data Points", 
-             width='stretch') 
-    with plot_col2:
-        st.image("heatmap.png", 
-             caption="Correlation Heatmap (Numeric Features Only)", 
-             width='stretch')
-    # -----------------------------------------------------------------
-if selected == "Contact":
-    st.title(f"You have selected {selected}")
 
+    # Assign plots to tabs
+    display_eda_plot(tab1, eda_plots[0], "4682B4") # time_trends.png (Blue)
+    display_eda_plot(tab2, eda_plots[1], "7CFC00") # correlation_heatmap.png (Green)
+    display_eda_plot(tab3, eda_plots[2], "FFA500") # missing_heatmap.png (Orange)
+    display_eda_plot(tab4, eda_plots[3], "FFC0CB") # geospatial_scatter.png (Pink)
+    
+    st.markdown("---")
+    
+    st.subheader("Raw Data Preview")
+    st.dataframe(filtered_data.head())
+
+
+# --- 3. Model Evaluation ---
+elif navigation == "Model Evaluation":
+    
+    st.header("🏆 Model Evaluation Results")
+    
+    # Simulation of the folder structure text from the image
+    st.markdown(f"""
+    **Choose model folder:** `{selected_model}`
+    
+    *Browsing: /project/smart_pollution_solution/results/{selected_model.lower().replace(' ', '_')}/...*
+    """)
+    
+    st.markdown("---")
+    
+    st.subheader("Images / Plots")
+    
+    # Create columns for the simulated plots (Heatmaps/Charts)
+    colA, colB, colC = st.columns(3)
+    
+    # Placeholder for Classification Report Plot (Heatmap)
+    with colA:
+        st.image("https://via.placeholder.com/300x250/90EE90/000000?text=Classification+Report+Plot", 
+                 caption="classification_report.png (Simulated)")
+    
+    # Placeholder for Confusion Matrix Plot (Heatmap)
+    with colB:
+        st.image("https://via.placeholder.com/300x250/ADD8E6/000000?text=Confusion+Matrix+Plot", 
+                 caption="confusion_matrix.png (Simulated)")
+                 
+    # Placeholder for Scores Plot (Line Chart)
+    with colC:
+        st.image("https://via.placeholder.com/300x250/F08080/000000?text=PR/F1+Scores+Plot", 
+                 caption="pr_f1_scores.png (Simulated)")
+
+    st.markdown("---")
+    
+    st.subheader("Metrics (Simulated)")
+    # Simulate displaying raw metric values
+    st.dataframe(
+        pd.DataFrame({
+            'Metric': ['Accuracy', 'Precision', 'Recall', 'F1-Score'],
+            'Source A': [0.92, 0.90, 0.94, 0.92],
+            'Source B': [0.85, 0.82, 0.88, 0.84],
+            'Overall': [0.90, 0.88, 0.92, 0.89]
+        }).set_index('Metric')
+    )
+    st.info(f"Showing evaluation results for the **{selected_model}** model.")
+
+# --- 4. About ---
+elif navigation == "About":
+    st.header("❓ About EnviroScan Project")
+    st.info("""
+    The EnviroScan project aims to predict the primary source of air pollution 
+    based on real-time environmental parameters using advanced machine learning models.
+    This dashboard serves as the interface for input, visualization, and model diagnostics.
+    """)
