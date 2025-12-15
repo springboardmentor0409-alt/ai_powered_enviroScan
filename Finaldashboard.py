@@ -604,7 +604,7 @@ elif page == "📽 Advanced Visual Dashboard":
     # ---------------- LOAD SEPARATE DATASET SAFELY ----------------
     @st.cache_data
     def load_dashboard_data():
-        df = pd.read_csv("pollution_labeled_output.csv")
+        df = pd.read_csv("datalabeled_pollution_data.csv")
         df["date"] = pd.to_datetime(df["date"], errors="ignore")
         df["year"] = df["date"].dt.year
         df["month"] = df["date"].dt.month
