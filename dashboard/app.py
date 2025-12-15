@@ -82,19 +82,40 @@ menu = st.sidebar.radio(
 # HOME
 # -----------------------------------------------------------
 if menu == "Home":
-    st.title("🌍 EnviroScan: AI-Powered Pollution Source Identifier")
-    st.subheader("Machine Learning + Geospatial Analytics")
 
-    st.markdown("""
-EnviroScan identifies the **most probable source of air pollution**
-using environmental measurements and spatial context.
+    col_left, col_right = st.columns([1.2, 1])
 
-### Pollution Sources Identified
-- Vehicular Emissions  
-- Industrial Pollution  
-- Agricultural Burning  
-- Natural Causes  
-""")
+    with col_left:
+        st.markdown("""
+        <h1 style='margin-bottom:5px;'>🌍 EnviroScan: AI</h1>
+        <p style='font-size:18px; color:#555; margin-top:0;'>
+        Powered Pollution Source Identifier using Geospatial Analytics
+        </p>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="card">
+        <p style="font-size:16px;">
+        EnviroScan is an <b>AI-driven analytical system</b> designed to identify the 
+        most probable <b>sources of air pollution</b> by combining environmental data 
+        with geospatial intelligence.
+        </p>
+
+        <h4>🌱 Pollution Sources Identified</h4>
+        <ul>
+            <li>Vehicular Emissions</li>
+            <li>Industrial Pollution</li>
+            <li>Agricultural Burning</li>
+            <li>Natural Causes</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_right:
+        st.image(
+            "assets/enviro_dashboard.png",
+            width=700
+        )
 
 # -----------------------------------------------------------
 # PREDICT SOURCE
@@ -223,11 +244,27 @@ elif menu == "Model Insights":
 
     base_folder = Path("../results") / folder_map[model_select]
 
-    explanations = {
-        "confusion_matrix": "Confusion matrix showing correct and incorrect predictions.",
-        "classification_report": "Precision, recall, and F1-score for each class.",
-        "feature_importance": "Most influential features for model decisions.",
-        "cv_f1": "Cross-validation F1 score stability."
+    descriptions = {
+        "confusion_matrix": (
+            "📊 **Confusion Matrix**\n\n"
+            "Shows how well the model classified pollution sources.\n"
+            "- Diagonal values = correct predictions\n"
+            "- Off-diagonal values = misclassifications"
+        ),
+        "classification_report": (
+            "📄 **Classification Report**\n\n"
+            "Displays Precision, Recall, and F1-score for each pollution source.\n"
+            "Higher values indicate better model performance."
+        ),
+        "feature_importance": (
+            "⭐ **Feature Importance**\n\n"
+            "Indicates which environmental or spatial features most influenced the model’s predictions."
+        ),
+        "cv_f1": (
+            "🔁 **Cross-Validation F1 Scores**\n\n"
+            "Shows consistency of the model across multiple validation folds.\n"
+            "Stable scores mean good generalization."
+        )
     }
 
     if not base_folder.exists():
@@ -236,11 +273,13 @@ elif menu == "Model Insights":
         for img in sorted(base_folder.glob("*.png")):
             st.subheader(img.stem.replace("_", " ").title())
             st.image(str(img), width="stretch")
-            for key in explanations:
-                if key in img.name:
-                    st.caption(explanations[key])
-            st.markdown("---")
 
+            for key, text in descriptions.items():
+                if key in img.name:
+                    st.markdown(text)
+                    break
+
+            st.markdown("---")
 # -----------------------------------------------------------
 # DATA VISUALIZATION (EDA)
 # -----------------------------------------------------------
@@ -250,13 +289,36 @@ elif menu == "Data Visualization":
 
     eda_root = Path("../results/eda")
 
+    section_descriptions = {
+        "": (
+            "📌 **Overall Exploratory Data Analysis**\n\n"
+            "These visualizations provide a high-level understanding of pollution trends,\n"
+            "data distribution, missing values, and spatial patterns."
+        ),
+        "boxplots": (
+            "📦 **Boxplots**\n\n"
+            "Boxplots help identify:\n"
+            "- Median pollution levels\n"
+            "- Spread of data\n"
+            "- Outliers in pollutant measurements"
+        ),
+        "distributions": (
+            "📈 **Distributions**\n\n"
+            "Distribution plots show how frequently pollution values occur.\n"
+            "They help understand skewness, peaks, and variability in data."
+        )
+    }
+
     if not eda_root.exists():
         st.error("EDA folder not found.")
     else:
         for section in ["", "boxplots", "distributions"]:
             folder = eda_root if section == "" else eda_root / section
+
             if folder.exists():
                 st.subheader(section.capitalize() if section else "Overall EDA")
+                st.markdown(section_descriptions[section])
+
                 cols = st.columns(2)
                 for i, img in enumerate(sorted(folder.glob("*.png"))):
                     with cols[i % 2]:
@@ -265,6 +327,8 @@ elif menu == "Data Visualization":
                             caption=img.stem.replace("_", " ").title(),
                             width="stretch"
                         )
+
+                st.markdown("---")
 
 # -----------------------------------------------------------
 # ABOUT
