@@ -11,4 +11,4 @@ __pycache__/
 # Environment variables
 *.env
 dashboard/random_forest/random_forest.joblib
-data/labeled_pollution_data.csv
+# data/labeled_pollution_data.csv
