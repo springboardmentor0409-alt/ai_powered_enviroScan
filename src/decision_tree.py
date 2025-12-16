@@ -107,4 +107,3 @@ if __name__ == "__main__":
         model_path="../models/decision_tree",
         results_path="../results/decision_tree"
     )
-

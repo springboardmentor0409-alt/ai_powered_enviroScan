@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-df = pd.read_csv('EnviroFinal_final_unlabled.csv')
+df = pd.read_csv('fixed_dates.csv')
 
 # Replacing the Nan values with the Minimum values
 min_value = df['fire_min_dist_km'].min()
