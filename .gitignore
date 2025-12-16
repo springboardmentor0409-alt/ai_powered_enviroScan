@@ -1,0 +1,14 @@
+# Virtual environment
+venv/
+.env/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Environment variables
+*.env
+dashboard/random_forest/random_forest.joblib
+data/labeled_pollution_data.csv
