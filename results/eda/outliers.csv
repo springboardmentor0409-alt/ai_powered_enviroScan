@@ -1,0 +1,7 @@
+,zscore_outliers,zero_outliers,combined_outliers
+PM2.5,6923,766,7689
+PM10,6923,6,6929
+NO2,6923,2715,9638
+SO2,6923,2615,9538
+CO,6923,14537,21460
+O3,6923,5423,12346
