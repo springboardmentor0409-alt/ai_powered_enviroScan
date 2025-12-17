@@ -15,7 +15,7 @@ from eda.geospatial import plot_geospatial
 from eda.time_trends import plot_time_trends
 
 # RUN EDA
-df = load_dataset("data/fixed_dates.csv")
+df = load_dataset("data/EnviroFinal_final_unlabled.csv")
 
 check_missing(df)
 summary_stats(df)
