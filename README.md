@@ -3,7 +3,8 @@
 AI-Powered Pollution Source Identifier using Geospatial Analytics AI-EnviroScan is an intelligent analytical system that goes beyond measuring air quality; it identifies the probable origin of pollution. By fusing machine learning with real-time weather and geospatial data, the system distinguishes between industrial emissions, traffic congestion, agricultural burning, and natural phenomena.
 
 🚀 Overview
-Most air quality monitors tell you how much pollution there is, but not where it's coming from. AI-EnviroScan bridges this gap by correlating pollutant ratios (like the SO2 / NO2 ratio) with proximity to points of interest (factories, highways, farms) extracted via OpenStreetMap.
+Most air quality monitors tell you how much pollution there is, but not where it's coming from. 
+AI-EnviroScan bridges this gap by correlating pollutant ratios (like the SO2 / NO2 ratio) with proximity to points of interest (factories, highways, farms) extracted via OpenStreetMap.
 ---
 
 ##  Key Features
@@ -22,12 +23,22 @@ Most air quality monitors tell you how much pollution there is, but not where it
 [Insert Screenshot of Map View] | [Insert Screenshot of Analytics Charts]
 
 ---
-🛠️ Technical Workflow
-1. Data Acquisition & FusionThe system pulls data from three primary sources:OpenAQ: Real-time PM2.5, PM10, $NO_2$, $SO_2$, $CO$, and $O_3$ levels.OpenWeather API: Wind speed and direction (crucial for plume dispersion modeling).OSMnx (OpenStreetMap): Spatial features such as distance to the nearest industrial zone or primary highway.
 
-2. Feature Engineering & LogicThe model doesn't just look at raw numbers. 
-It calculates:Pollutant Ratios: High $SO_2/NO_2$ often indicates coal-burning (Industrial), while high $NO_2$ alone suggests combustion engines (Vehicular).Wind Vectors: Correlates wind direction with upwind land-use types to validate sources.
-3. Machine Learning StackModels: Random Forest & XGBoost (chosen for their ability to handle non-linear spatial relationships).Labeling: A semi-supervised approach using heuristic rules for initial labeling followed by manual validation.
+🛠️ Technical Workflow
+1. Data Acquisition & Fusion
+The system pulls data from three primary sources:
+OpenAQ: Real-time PM2.5, PM10, $NO_2$, $SO_2$, $CO$, and $O_3$ levels.OpenWeather API: Wind speed and direction (crucial for plume dispersion modeling).
+OSMnx (OpenStreetMap): Spatial features such as distance to the nearest industrial zone or primary highway.
+
+2. Feature Engineering & Logic
+The model doesn't just look at raw numbers. 
+It calculates:
+Pollutant Ratios: High $SO_2/NO_2$ often indicates coal-burning (Industrial), while high $NO_2$ alone suggests combustion engines (Vehicular).
+Wind Vectors: Correlates wind direction with upwind land-use types to validate sources.
+
+3. Machine Learning Stack
+Models: Random Forest & XGBoost (chosen for their ability to handle non-linear spatial relationships).
+Labeling: A semi-supervised approach using heuristic rules for initial labeling followed by manual validation.
 
 ---
 ##  Project Workflow
@@ -136,5 +147,6 @@ streamlit run dashboard.py
 - Cloud deployment  
 
 ---
-
+🤝 Contributing:
+Contributions are welcome! Please feel free to submit a Pull Request.
 
