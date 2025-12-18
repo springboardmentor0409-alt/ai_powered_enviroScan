@@ -1,8 +1,9 @@
 🌍 AI-EnviroScan
+
 AI-Powered Pollution Source Identifier using Geospatial Analytics AI-EnviroScan is an intelligent analytical system that goes beyond measuring air quality; it identifies the probable origin of pollution. By fusing machine learning with real-time weather and geospatial data, the system distinguishes between industrial emissions, traffic congestion, agricultural burning, and natural phenomena.
 
 🚀 Overview
-Most air quality monitors tell you how much pollution there is, but not where it's coming from. AI-EnviroScan bridges this gap by correlating pollutant ratios (like the $SO_2 / NO_2$ ratio) with proximity to points of interest (factories, highways, farms) extracted via OpenStreetMap.
+Most air quality monitors tell you how much pollution there is, but not where it's coming from. AI-EnviroScan bridges this gap by correlating pollutant ratios (like the SO2 / NO2 ratio) with proximity to points of interest (factories, highways, farms) extracted via OpenStreetMap.
 ---
 
 ##  Key Features
