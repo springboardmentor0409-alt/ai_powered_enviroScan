@@ -115,7 +115,7 @@ def train_xgboost(input_path, model_path, results_path, seed=42):
 
 if __name__ == "__main__":
     train_xgboost(
-        input_path="../data/labeled_pollution_data.csv",
-        model_path="../models/xgboost_model",
-        results_path="../results/xgboost_model"
+        input_path="data/labeled_pollution_data.csv",
+        model_path="models/xgboost_model",
+        results_path="results/xgboost_model"
     )

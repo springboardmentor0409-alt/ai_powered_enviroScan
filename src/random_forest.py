@@ -101,7 +101,7 @@ def train_random_forest(input_path, model_path, results_path, seed=42):
 
 if __name__ == "__main__":
     train_random_forest(
-        input_path="../data/labeled_pollution_data.csv",
-        model_path="../models/random_forest",
-        results_path="../results/random_forest"
+        input_path="data/labeled_pollution_data.csv",
+        model_path="models/random_forest",
+        results_path="results/random_forest"
     )

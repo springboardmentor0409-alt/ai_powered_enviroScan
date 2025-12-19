@@ -1,278 +1,483 @@
-# app.py
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
-import os
-import folium
-from folium.plugins import HeatMap
-import plotly.express as px
-from streamlit.components.v1 import html
-from datetime import datetime
+import math
+from pathlib import Path
+from datetime import date
 
-st.set_page_config(layout="wide", page_title="EnviroScan — Pollution Source Dashboard")
+# -----------------------------------------------------------
+# PAGE CONFIGURATION
+# -----------------------------------------------------------
+st.set_page_config(
+    page_title="EnviroScan – AI Pollution Source Identifier",
+    layout="wide",
+    page_icon="🌍"
+)
 
-# ----------------------------
-# Paths (edit if needed)
-# ----------------------------
-DATA_PATH = os.path.join("data", "labeled_pollution_data.csv")
-MODEL_PATH = os.path.join("models", "best_model.pkl")
+# -----------------------------------------------------------
+# MODERN UI STYLE
+# -----------------------------------------------------------
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
 
-# ----------------------------
-# Utility: load data & model
-# ----------------------------
-@st.cache_data(ttl=3600)
-def load_dataset(path=DATA_PATH):
-    if not os.path.exists(path):
-        st.error(f"Dataset not found at: {path}")
-        return None
-    df = pd.read_csv(path, parse_dates=["date"], infer_datetime_format=True)
-    return df
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #f3f8fb, #eef6f7);
+}
 
-@st.cache_resource(ttl=3600)
-def load_model(path=MODEL_PATH):
-    if not os.path.exists(path):
-        st.error(f"Model not found at: {path}")
-        return None
-    bundle = joblib.load(path)
-    model = bundle["model"]
-    label_encoder = bundle["label_encoder"]
-    feature_columns = bundle.get("feature_columns", [])
-    return model, label_encoder, feature_columns
+/* Headings */
+h1 {
+    font-size: 2.6rem !important;
+    font-weight: 800 !important;
+    background: linear-gradient(90deg, #005f73, #0bbcd6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 
-# Preprocess single input dict -> aligned DF
-def preprocess_input_for_model(input_dict, feature_columns):
-    df = pd.DataFrame([input_dict])
-    df = pd.get_dummies(df, drop_first=True)
-    # add missing features
-    for c in feature_columns:
-        if c not in df.columns:
-            df[c] = 0
-    # drop extra columns
-    df = df[feature_columns]
-    return df
+h2, h3 {
+    color: #005f73 !important;
+    font-weight: 700;
+}
 
-def predict_single(input_dict):
-    model_bundle = load_model()
-    if model_bundle is None:
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #023047, #005f73);
+}
+
+section[data-testid="stSidebar"] * {
+    color: #ffffff !important;
+}
+
+/* Cards */
+.card {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(14px);
+    border-radius: 18px;
+    padding: 26px;
+    margin-bottom: 24px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+}
+
+/* Inputs */
+input, select, textarea {
+    border-radius: 10px !important;
+    border: 1px solid #bde0fe !important;
+}
+
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(135deg, #005f73, #0bbcd6);
+    color: white;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 12px 30px;
+    border: none;
+    transition: 0.3s;
+    box-shadow: 0 6px 18px rgba(11,188,214,0.45);
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(11,188,214,0.6);
+}
+
+/* Alerts */
+div[data-testid="stAlert"] {
+    border-radius: 14px;
+    font-size: 17px;
+}
+
+/* Images */
+img {
+    border-radius: 16px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# -----------------------------------------------------------
+# MODEL LOADER
+# -----------------------------------------------------------
+@st.cache_resource
+def load_model(model_name):
+    try:
+        model_paths = {
+            "Random Forest": "models/random_forest/random_forest.joblib",
+            "Logistic Regression": "models/logistic_regression/logistic_regression.joblib",
+            "XGBoost": "models/xgboost_model/xgboost.joblib",
+            "Decision Tree": "models/decision_tree/decision_tree.joblib",
+        }
+        encoder_paths = {
+            "Random Forest": "models/random_forest/label_encoder.joblib",
+            "Logistic Regression": "models/logistic_regression/label_encoder.joblib",
+            "XGBoost": "models/xgboost_model/label_encoder.joblib",
+            "Decision Tree": "models/decision_tree/label_encoder.joblib",
+        }
+        model = joblib.load(model_paths[model_name])
+        encoder = joblib.load(encoder_paths[model_name])
+        return model, encoder
+    except FileNotFoundError as e:
+        st.error(f"Model or encoder file not found for {model_name}: {e}")
         return None, None
-    model, le, feat_cols = model_bundle
-    X = preprocess_input_for_model(input_dict, feat_cols)
-    preds = model.predict(X)
-    probs = model.predict_proba(X)
-    pred_label = le.inverse_transform(preds)[0]
-    conf = float(np.max(probs))
-    return pred_label, conf
+    except Exception as e:
+        st.error(f"Error loading model {model_name}: {e}")
+        return None, None
 
-# ----------------------------
-# Small helpers
-# ----------------------------
-def top_kpis(df):
-    latest_date = df['date'].max()
-    latest_df = df[df['date'] == latest_date]
-    avg_pm25 = float(latest_df['PM2.5'].mean())
-    max_pm25 = float(latest_df['PM2.5'].max())
-    most_common_source = df['Source'].mode().iat[0] if 'Source' in df.columns else "N/A"
-    return latest_date, avg_pm25, max_pm25, most_common_source
-
-def make_folium_map(df, lat_col='latitude', lon_col='longitude', value_col='PM2.5', radius=10):
-    # Center map
-    center = [df[lat_col].mean(), df[lon_col].mean()]
-    m = folium.Map(location=center, tiles="CartoDB positron", zoom_start=6)
-    # HeatMap expects list of [lat, lon, weight]
-    heat_data = df[[lat_col, lon_col, value_col]].dropna().values.tolist()
-    if len(heat_data) > 0:
-        HeatMap(heat_data, radius=radius, blur=15, max_zoom=10).add_to(m)
-    # add some markers for top N extremes (optional)
-    topn = df.nlargest(30, value_col)
-    for _, r in topn.iterrows():
-        popup = folium.Popup(f"{r.get('city','')}, {value_col}: {r.get(value_col):.1f}<br>Source: {r.get('Source','')}", max_width=250)
-        folium.CircleMarker(location=[r[lat_col], r[lon_col]], radius=4, color='red', fill=True, popup=popup).add_to(m)
-    return m
-
-def folium_static(m, width=700, height=500):
-    """Render Folium map in Streamlit via HTML iframe"""
-    return html(m._repr_html_(), height=height, width=width)
-
-# ----------------------------
-# UI Layout: Sidebar
-# ----------------------------
-st.sidebar.title("EnviroScan — Controls")
-df = load_dataset()
-model_bundle = load_model()
-
-if df is None:
-    st.stop()
-
-# Sidebar filters
-cities = sorted(df['city'].unique().tolist())
-selected_city = st.sidebar.selectbox("City", ["All"] + cities)
-date_min = df['date'].min()
-date_max = df['date'].max()
-date_range = st.sidebar.date_input("Date range", value=(date_min.date(), date_max.date()), min_value=date_min.date(), max_value=date_max.date())
-
-pollutant = st.sidebar.selectbox("Pollutant for plots & heatmap", ["PM2.5","PM10","NO2","SO2","CO","O3"])
-
-# Quick filter
-filtered = df.copy()
-if selected_city != "All":
-    filtered = filtered[filtered['city'] == selected_city]
-
-start_date = pd.to_datetime(date_range[0])
-end_date = pd.to_datetime(date_range[1])
-filtered = filtered[(filtered['date'] >= start_date) & (filtered['date'] <= end_date)]
-
-# ----------------------------
-# Main layout
-# ----------------------------
-st.title("EnviroScan — AI-Powered Pollution Source Dashboard")
-st.markdown("Predict pollution sources, visualize hotspots, explore historical trends, and export results.")
-
-# KPI row
-latest_date, avg_pm25, max_pm25, most_common_source = top_kpis(df)
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Latest Date in Dataset", latest_date.strftime("%Y-%m-%d"))
-k2.metric(f"Avg {pollutant} (filtered)", f"{filtered[pollutant].mean():.2f}")
-k3.metric(f"Max {pollutant} (filtered)", f"{filtered[pollutant].max():.2f}")
-k4.metric("Most common source (all data)", most_common_source)
-
-# Two-column: charts + map
-c1, c2 = st.columns((1.2, 1))
-
-with c1:
-    st.subheader("Source Distribution")
-    src_counts = filtered['Source'].value_counts().reset_index()
-    src_counts.columns = ['Source', 'count']
-    fig1 = px.pie(src_counts, names='Source', values='count', title="Predicted Source Distribution")
-    st.plotly_chart(fig1, use_container_width=True)
-
-    st.subheader(f"{pollutant} over time")
-    # Aggregate daily average
-    ts = filtered.set_index('date').resample('D')[pollutant].mean().reset_index()
-    fig2 = px.line(ts, x='date', y=pollutant, title=f"{pollutant} — daily average")
-    st.plotly_chart(fig2, use_container_width=True)
-
-    st.subheader("Pollutant levels by city")
-    city_avg = filtered.groupby('city')[pollutant].mean().reset_index().sort_values(pollutant, ascending=False).head(20)
-    fig3 = px.bar(city_avg, x=pollutant, y='city', orientation='h', title=f"Top cities by {pollutant}")
-    st.plotly_chart(fig3, use_container_width=True)
-
-with c2:
-    st.subheader("Geospatial Heatmap")
-    # create a smaller sample for the map to keep interactive smooth
-    map_df = filtered[[ 'latitude','longitude', pollutant, 'Source']].dropna()
-    if map_df.shape[0] > 3000:
-        map_df = map_df.sample(3000, random_state=42)
-    folium_map = make_folium_map(map_df.rename(columns={pollutant: pollutant}), value_col=pollutant)
-    folium_static(folium_map, height=550, width=700)
-
-st.markdown("---")
-
-# ----------------------------
-# Prediction page (form)
-# ----------------------------
-st.header("Predict Pollution Source for a Location & Time")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    in_city = st.selectbox("City (optional)", [""] + cities)
-    latitude = st.number_input("Latitude", value=float(df['latitude'].median()))
-    longitude = st.number_input("Longitude", value=float(df['longitude'].median()))
-    date_input = st.date_input("Date", value=datetime.today().date())
-
-with col2:
-    PM25 = st.number_input("PM2.5", value=float(df['PM2.5'].median()))
-    PM10 = st.number_input("PM10", value=float(df['PM10'].median()))
-    NO2 = st.number_input("NO2", value=float(df['NO2'].median()))
-    SO2 = st.number_input("SO2", value=float(df['SO2'].median()))
-
-with col3:
-    CO = st.number_input("CO", value=float(df['CO'].median()))
-    O3 = st.number_input("O3", value=float(df['O3'].median()))
-    temperature = st.number_input("Temperature (°C)", value=float(df['temperature'].median()))
-    humidity = st.number_input("Humidity (%)", value=float(df['humidity'].median()))
-
-# extra features
-dist_to_road = st.number_input("Distance to road (km)", value=float(df['dist_to_road'].median()))
-dist_to_industry = st.number_input("Distance to industry (km)", value=float(df['dist_to_industry'].median()))
-dist_to_farm = st.number_input("Distance to farm (km)", value=float(df['dist_to_farm'].median()))
-fire_nearby = st.selectbox("Fire nearby?", [0,1], index=0)
-fire_count = st.number_input("Fire count nearby", value=int(df['fire_count'].median()))
-fire_min_dist_km = st.number_input("Closest fire (km)", value=float(df['fire_min_dist_km'].median()))
-
-# derived features
-dayofyear = pd.to_datetime(date_input).dayofyear
-month = pd.to_datetime(date_input).month
-year = pd.to_datetime(date_input).year
-
-predict_btn = st.button("Predict Source")
-
-if predict_btn:
-    input_dict = {
-        "city": in_city or None,
-        "latitude": latitude,
-        "longitude": longitude,
-        "PM2.5": PM25,
-        "PM10": PM10,
-        "NO2": NO2,
-        "SO2": SO2,
-        "CO": CO,
-        "O3": O3,
-        "temperature": temperature,
-        "humidity": humidity,
-        "wind_speed": float(df['wind_speed'].median()) if 'wind_speed' in df.columns else 1.0,
-        "wind_dir": float(df['wind_dir'].median()) if 'wind_dir' in df.columns else 180,
-        "dist_to_road": dist_to_road,
-        "dist_to_industry": dist_to_industry,
-        "dist_to_farm": dist_to_farm,
-        "fire_nearby": int(fire_nearby),
-        "fire_count": int(fire_count),
-        "fire_min_dist_km": float(fire_min_dist_km),
-        "dayofyear": int(dayofyear),
-        "month": int(month),
-        "year": int(year),
-        # Season as string (model expects Season dummies if present in feature_columns)
-        "Season": pd.to_datetime(date_input).strftime("%B")
-    }
-
-    pred_label, conf = predict_single(input_dict)
-    if pred_label is None:
-        st.error("Model not loaded — cannot predict.")
+# -----------------------------------------------------------
+# HELPER
+# -----------------------------------------------------------
+def infer_season(month):
+    if month in [12, 1, 2]:
+        return "winter"
+    elif month in [3, 4, 5]:
+        return "summer"
+    elif month in [6, 7, 8]:
+        return "monsoon"
     else:
-        st.markdown(f"### Prediction: **{pred_label}**")
-        st.metric("Confidence", f"{conf:.2%}")
+        return "autumn"
 
-st.markdown("---")
+# -----------------------------------------------------------
+# SIDEBAR
+# -----------------------------------------------------------
+st.sidebar.title("🌿 EnviroScan")
+menu = st.sidebar.radio(
+    "Navigation",
+    ["Home", "Predict Source", "Model Insights", "Data Visualization", "About Project"]
+)
 
-# ----------------------------
-# Historical explorer + upload/download
-# ----------------------------
-st.header("Historical Data Explorer")
-with st.expander("Filters & Export"):
-    colA, colB, colC = st.columns(3)
-    with colA:
-        city_sel = st.multiselect("Filter cities", options=df['city'].unique().tolist(), default=[df['city'].unique().tolist()[0]])
-    with colB:
-        source_sel = st.multiselect("Filter source", options=df['Source'].unique().tolist(), default=df['Source'].unique().tolist())
-    with colC:
-        download_btn = st.button("Download filtered CSV")
+# -----------------------------------------------------------
+# HOME
+# -----------------------------------------------------------
+if menu == "Home":
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.title("AI-EnviroScan")
+    st.subheader("AI-Powered Pollution Source Identifier using Geospatial Analytics")
 
-    filtered2 = df[df['city'].isin(city_sel) & df['Source'].isin(source_sel)]
-    st.write(f"Filtered rows: {filtered2.shape[0]}")
+    st.markdown("""
+AI-EnviroScan is an **intelligent AI system** designed to identify the  
+**probable source of air pollution**, not just pollutant concentration levels.
 
-    if download_btn:
-        csv = filtered2.to_csv(index=False).encode('utf-8')
-        st.download_button("Click to download CSV", data=csv, file_name="enviro_filtered.csv", mime="text/csv")
+By combining **machine learning, environmental data, weather parameters,  
+and geospatial analytics**, the system determines whether pollution is caused by:
 
-st.dataframe(filtered2.head(200), use_container_width=True)
+- 🚗 Vehicular Emissions  
+- 🏭 Industrial Activities  
+- 🌾 Agricultural Burning  
+- 🔥 Waste / Open Burning  
+- 🌲 Natural Factors  
 
-st.markdown("### Upload new dataset (optional)")
-uploaded = st.file_uploader("Upload CSV to append and preview", type=["csv"])
-if uploaded is not None:
-    newdf = pd.read_csv(uploaded, parse_dates=["date"], infer_datetime_format=True)
-    st.write("Preview of uploaded file")
-    st.dataframe(newdf.head(200))
+This enables **targeted mitigation strategies** instead of generic pollution control.
+""")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown("---")
-st.caption("EnviroScan — Streamlit Dashboard (prototype). Model trained on the provided dataset. Use prediction form for single-row predictions.")
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("### 🔍 Key Capabilities")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("""
+- ML-based pollution source prediction  
+- Automated feature engineering  
+- Weather & seasonal impact analysis  
+- Real-time alerts
+""")
+
+    with col2:
+        st.markdown("""
+- Geospatial heatmaps & hotspots  
+- Pollution trend visualization  
+- Decision-support dashboard  
+- Smart-city ready architecture
+""")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# -----------------------------------------------------------
+# PREDICTION
+# -----------------------------------------------------------
+elif menu == "Predict Source":
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.title("🔍 Predict Pollution Source")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    model_choice = st.selectbox(
+        "Select Model",
+        ["Random Forest", "Logistic Regression", "XGBoost", "Decision Tree"]
+    )
+
+    model, encoder = load_model(model_choice)
+
+    if model is None or encoder is None:
+        st.error("Failed to load the selected model. Please check the model files.")
+    else:
+        # Initialize session state for predictions
+        if 'predictions' not in st.session_state:
+            st.session_state.predictions = []
+
+        # Input validation function
+        def validate_inputs(date_val, city, location_id, latitude, longitude, PM25, PM10, NO2, SO2, CO, O3, temp, humidity, wind_speed, wind_dir, dist_to_road, dist_to_industry, dist_to_farm, traffic, fire_nearby, fire_min_dist_km):
+            errors = []
+            if not city.strip():
+                errors.append("City cannot be empty.")
+            if not location_id.strip():
+                errors.append("Location ID cannot be empty.")
+            if not (-90 <= latitude <= 90):
+                errors.append("Latitude must be between -90 and 90.")
+            if not (-180 <= longitude <= 180):
+                errors.append("Longitude must be between -180 and 180.")
+            if PM25 < 0 or PM10 < 0 or NO2 < 0 or SO2 < 0 or CO < 0 or O3 < 0:
+                errors.append("Pollutant values must be non-negative.")
+            if not (0 <= humidity <= 100):
+                errors.append("Humidity must be between 0 and 100.")
+            if wind_speed < 0:
+                errors.append("Wind speed must be non-negative.")
+            if not (0 <= wind_dir <= 360):
+                errors.append("Wind direction must be between 0 and 360.")
+            if dist_to_road < 0 or dist_to_industry < 0 or dist_to_farm < 0 or fire_min_dist_km < 0:
+                errors.append("Distances must be non-negative.")
+            if traffic < 0:
+                errors.append("Traffic index must be non-negative.")
+            return errors
+
+        with st.form("prediction_form"):
+            tabs = st.tabs(["📍 Location & Date", "🌫️ Pollutants", "🌤️ Weather", "📏 Distances & Other"])
+
+            with tabs[0]:
+                colA, colB = st.columns(2)
+                with colA:
+                    date_val = st.date_input("Date", value=date.today(), help="Select the date for prediction.")
+                    city = st.text_input("City", value="Hyderabad", help="Enter the city name.")
+                    location_id = st.text_input("Location ID", value="LOC_001", help="Unique identifier for the location.")
+                with colB:
+                    latitude = st.number_input("Latitude", value=17.3850, format="%.4f", min_value=-90.0, max_value=90.0, help="Latitude in degrees.")
+                    longitude = st.number_input("Longitude", value=78.4867, format="%.4f", min_value=-180.0, max_value=180.0, help="Longitude in degrees.")
+
+            with tabs[1]:
+                col1, col2 = st.columns(2)
+                with col1:
+                    PM25 = st.number_input("PM2.5 (µg/m³)", value=80.0, min_value=0.0, help="Particulate matter 2.5 concentration.")
+                    PM10 = st.number_input("PM10 (µg/m³)", value=120.0, min_value=0.0, help="Particulate matter 10 concentration.")
+                    NO2 = st.number_input("NO2 (µg/m³)", value=30.0, min_value=0.0, help="Nitrogen dioxide concentration.")
+                    SO2 = st.number_input("SO2 (µg/m³)", value=8.0, min_value=0.0, help="Sulfur dioxide concentration.")
+                    CO = st.number_input("CO (mg/m³)", value=1.2, min_value=0.0, help="Carbon monoxide concentration.")
+                    O3 = st.number_input("O3 (µg/m³)", value=25.0, min_value=0.0, help="Ozone concentration.")
+
+            with tabs[2]:
+                col1, col2 = st.columns(2)
+                with col1:
+                    temp = st.number_input("Temperature (°C)", value=28.0, help="Ambient temperature.")
+                    humidity = st.number_input("Humidity (%)", value=60.0, min_value=0.0, max_value=100.0, help="Relative humidity percentage.")
+                    wind_speed = st.number_input("Wind Speed (m/s)", value=2.0, min_value=0.0, help="Wind speed in meters per second.")
+                with col2:
+                    wind_dir = st.number_input("Wind Direction (°)", value=180.0, min_value=0.0, max_value=360.0, help="Wind direction in degrees (0-360).")
+
+            with tabs[3]:
+                col1, col2 = st.columns(2)
+                with col1:
+                    dist_to_road = st.number_input("Distance to Road (km)", value=0.2, min_value=0.0, help="Distance to nearest road.")
+                    dist_to_industry = st.number_input("Distance to Industry (km)", value=5.0, min_value=0.0, help="Distance to nearest industry.")
+                    dist_to_farm = st.number_input("Distance to Farm (km)", value=1.0, min_value=0.0, help="Distance to nearest farm.")
+                    traffic = st.number_input("Traffic Index", value=40.0, min_value=0.0, help="Traffic density index.")
+                with col2:
+                    fire_nearby = st.selectbox("Fire Nearby?", [0, 1], help="Is there a fire nearby? (0=No, 1=Yes)")
+                    fire_min_dist_km = st.number_input("Fire Distance (km)", value=15.0, min_value=0.0, help="Distance to nearest fire.")
+
+            submit = st.form_submit_button("Predict")
+
+        if submit:
+            errors = validate_inputs(date_val, city, location_id, latitude, longitude, PM25, PM10, NO2, SO2, CO, O3, temp, humidity, wind_speed, wind_dir, dist_to_road, dist_to_industry, dist_to_farm, traffic, fire_nearby, fire_min_dist_km)
+            if errors:
+                for error in errors:
+                    st.error(error)
+            else:
+                with st.spinner("Predicting pollution source..."):
+                    wind_rad = math.radians(wind_dir)
+
+                    df = pd.DataFrame([{
+                        "date": date_val.strftime("%Y-%m-%d"),
+                        "city": city,
+                        "location_id": location_id,
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "year": date_val.year,
+                        "month": date_val.month,
+                        "dayofyear": date_val.timetuple().tm_yday,
+                        "season": infer_season(date_val.month),
+                        "PM2.5": PM25,
+                        "PM10": PM10,
+                        "NO2": NO2,
+                        "SO2": SO2,
+                        "CO": CO,
+                        "O3": O3,
+                        "temp": temp,
+                        "humidity": humidity,
+                        "wind_speed": wind_speed,
+                        "wind_dir": wind_dir,
+                        "wind_dir_rad": wind_rad,
+                        "wind_u": wind_speed * math.cos(wind_rad),
+                        "wind_v": wind_speed * math.sin(wind_rad),
+                        "dist_to_road": dist_to_road,
+                        "dist_to_industry": dist_to_industry,
+                        "dist_to_farm": dist_to_farm,
+                        "fire_nearby": fire_nearby,
+                        "fire_min_dist_km": fire_min_dist_km,
+                        "traffic_index": traffic,
+                        **{k: 0 for k in [
+                            "PM2.5_s","PM10_s","NO2_s","SO2_s","CO_s","O3_s","temp_s",
+                            "humidity_s","wind_speed_s","traffic_index_s",
+                            "dist_to_road_s","dist_to_industry_s","dist_to_farm_s",
+                            "fire_min_dist_km_s","road_bearing","industry_bearing",
+                            "farm_bearing","fire_bearing","align_r","align_i",
+                            "align_f","align_fire"
+                        ]}
+                    }])
+
+                    try:
+                        pred = model.predict(df)[0]
+                        label = encoder.inverse_transform([pred])[0]
+
+                        # Store prediction in session state
+                        prediction_record = {
+                            'timestamp': pd.Timestamp.now(),
+                            'model': model_choice,
+                            'date': date_val.strftime("%Y-%m-%d"),
+                            'city': city,
+                            'latitude': latitude,
+                            'longitude': longitude,
+                            'predicted_source': label,
+                            'PM2.5': PM25,
+                            'PM10': PM10,
+                            'NO2': NO2,
+                            'SO2': SO2,
+                            'CO': CO,
+                            'O3': O3,
+                            'temp': temp,
+                            'humidity': humidity,
+                            'wind_speed': wind_speed,
+                            'wind_dir': wind_dir
+                        }
+                        st.session_state.predictions.append(prediction_record)
+
+                        # Display prediction result
+                        st.markdown('<div class="card">', unsafe_allow_html=True)
+                        st.success(f"🌱 Predicted Pollution Source: **{label}**")
+                        if hasattr(model, 'predict_proba'):
+                            probas = model.predict_proba(df)[0]
+                            classes = encoder.classes_
+                            prob_dict = {cls: round(prob*100, 2) for cls, prob in zip(classes, probas)}
+                            st.write("**Prediction Confidence:**")
+                            for cls, prob in prob_dict.items():
+                                st.write(f"- {cls}: {prob}%")
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    except Exception as e:
+                        st.error(f"Prediction failed: {str(e)}")
+
+        # Prediction History
+        if st.session_state.predictions:
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.subheader("📜 Prediction History")
+            pred_df = pd.DataFrame(st.session_state.predictions)
+            st.dataframe(pred_df, width='stretch')
+
+            csv = pred_df.to_csv(index=False)
+            st.download_button(
+                label="Download Prediction History as CSV",
+                data=csv,
+                file_name="pollution_predictions.csv",
+                mime="text/csv"
+            )
+
+            if st.button("Clear History"):
+                st.session_state.predictions = []
+                st.success("Prediction history cleared.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+# -----------------------------------------------------------
+# MODEL INSIGHTS
+# -----------------------------------------------------------
+elif menu == "Model Insights":
+
+    st.title("📈 Model Insights")
+
+    model_select = st.selectbox(
+        "Choose Model",
+        ["Random Forest", "Logistic Regression", "XGBoost", "Decision Tree"]
+    )
+
+    base_folder = Path("results") / {
+        "Random Forest": "random_forest",
+        "Logistic Regression": "logistic_regression",
+        "XGBoost": "xgboost_model",
+        "Decision Tree": "decision_tree",
+    }[model_select]
+
+    if not base_folder.exists():
+        st.error("No results found.")
+    else:
+        for img in sorted(base_folder.glob("*.png")):
+            st.subheader(img.stem.replace("_", " ").title())
+            st.image(str(img), width='stretch')
+            st.markdown("---")
+
+# -----------------------------------------------------------
+# DATA VISUALIZATION
+# -----------------------------------------------------------
+elif menu == "Data Visualization":
+
+    st.title("📊 Data Visualization")
+
+    eda_root = Path("results/eda")
+
+    if not eda_root.exists():
+        st.error("EDA folder not found.")
+    else:
+        cols = st.columns(2)
+        for i, img in enumerate(sorted(eda_root.glob("**/*.png"))):
+            with cols[i % 2]:
+                st.image(
+                    str(img),
+                    caption=img.stem.replace("_", " ").title(),
+                    width='stretch'
+                )
+
+# -----------------------------------------------------------
+# ABOUT
+# -----------------------------------------------------------
+elif menu == "About Project":
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.title("ℹ️ About AI-EnviroScan")
+
+    st.markdown("""
+AI-EnviroScan is a **machine-learning driven pollution source identification system**
+that integrates **environmental data, weather parameters, and geospatial intelligence**
+to determine the **root cause of air pollution events**.
+
+### 🏗️ System Architecture
+APIs (OpenAQ, OpenWeather, OSMnx)
+→ Data Cleaning & Feature Engineering
+→ ML Models (Random Forest, XGBoost, Logistic Regression, Decision Tree)
+→ Pollution Source Prediction
+→ Geospatial Mapping
+→ Streamlit Dashboard & Alerts
+
+### 🎯 Use Cases
+- Smart city air-quality monitoring
+- Environmental research & analysis
+- Government decision support
+- Academic & student projects
+
+### 📊 Supported Pollution Sources
+- 🚗 Vehicular Emissions
+- 🏭 Industrial Activities
+- 🌾 Agricultural Burning
+- 🔥 Waste / Open Burning
+- 🌲 Natural Factors
+""")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Footer
+    st.markdown("---")
+    st.markdown("**@AI-EnviroScan** made by Ustela Sukesh Reddy")

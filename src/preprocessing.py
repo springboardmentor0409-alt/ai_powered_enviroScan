@@ -134,6 +134,6 @@ def preprocess_pollution_data(input_path: str, output_path: str):
 
 if __name__ == "__main__":
     preprocess_pollution_data(
-        "../data/unlabeled_pollution_data.csv",
-        "../data/labeled_pollution_data.csv"
+        "data/unlabeled_pollution_data.csv",
+        "data/labeled_pollution_data.csv"
     )

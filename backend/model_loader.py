@@ -4,28 +4,22 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import traceback
 
-_artifacts: Dict[str, Any] = {}
+# Removed _artifacts dictionary
 _models: Dict[str, Any] = {}
 
 def load_artifacts_and_models(base_dir: Optional[Path] = None) -> None:
     """
-    Load preprocessing artifacts and ML models into module-level containers.
+    Load ML models into module-level containers.
     base_dir should point to project root (one level above backend/).
     """
-    global _artifacts, _models
+    global _models
 
     try:
         if base_dir is None:
             # assume this file lives in backend/
             base_dir = Path(__file__).resolve().parent.parent
 
-        # Artifacts
-        artifact_path = base_dir / "models" / "artifacts" / "preprocessor.joblib"
-        if artifact_path.exists():
-            _artifacts = joblib.load(artifact_path)
-            print(f"[model_loader] Preprocessing artifacts loaded from {artifact_path}")
-        else:
-            print(f"[model_loader] WARNING: Artifacts not found at {artifact_path}")
+        # --- ARTIFACT LOADING REMOVED ---
 
         # Random Forest (primary model)
         rf_path = base_dir / "models" / "random_forest" / "random_forest.joblib"
@@ -49,12 +43,9 @@ def load_artifacts_and_models(base_dir: Optional[Path] = None) -> None:
                         # ignore loading failures for optional models
                         traceback.print_exc()
     except Exception as e:
-        print("[model_loader] Exception while loading artifacts/models:")
+        print("[model_loader] Exception while loading models:")
         traceback.print_exc()
         raise e
-
-def get_artifacts() -> Dict[str, Any]:
-    return _artifacts
 
 def get_models() -> Dict[str, Any]:
     return _models

@@ -96,7 +96,7 @@ def train_logistic_regression(input_path, model_path, results_path, seed=42):
 
 if __name__ == "__main__":
     train_logistic_regression(
-        input_path="../data/labeled_pollution_data.csv",
-        model_path="../models/logistic_regression",
-        results_path="../results/logistic_regression"
+        input_path="data/labeled_pollution_data.csv",
+        model_path="models/logistic_regression",
+        results_path="results/logistic_regression"
     )

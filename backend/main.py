@@ -2,15 +2,17 @@
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pathlib import Path
-from typing import Any
 import traceback
-
 import sys
-from pathlib import Path
 
-# Add the current directory (backend) to sys.path to allow imports when running from root
+# --- FIX: Add project root to system path so 'backend' module is found ---
+# 1. Add 'backend' folder (for local imports like model_loader)
 sys.path.append(str(Path(__file__).resolve().parent))
+# 2. Add Project Root (so Uvicorn can find 'backend.main')
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+# ------------------------------------------------------------------------
 
+# Imports
 from model_loader import load_artifacts_and_models, get_models, find_model_by_name, load_label_encoder_for_model
 from utilities import PollutionInput, preprocess_input
 
@@ -24,7 +26,17 @@ def startup_event():
         load_artifacts_and_models(base_dir=base_dir)
     except Exception:
         traceback.print_exc()
-        # startup continues; endpoints will warn if models missing
+
+@app.get("/")
+def read_root():
+    return {
+        "status": "active",
+        "message": "EnviroScan API is running successfully.",
+        "endpoints": [
+            "/models (GET)",
+            "/predict/{model_name} (POST)"
+        ]
+    }
 
 @app.get("/models")
 def list_models():
@@ -39,21 +51,18 @@ def predict(model_name: str, input_data: PollutionInput):
         raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found. Available: {list(get_models().keys())}")
 
     try:
+        # Preprocess
         df = preprocess_input(input_data)
+        X = df 
 
-        # Some scikit-learn models expect a specific set of columns.
-        # Here we pass the full dataframe row — ensure training used the same pipeline/columns.
-        X = df  # if you need specific columns: X = df[feature_list]
-
-        # If model supports predict_proba, return a best confidence
+        # Prediction Logic
         try:
             preds = selected_model.predict(X)
             prediction_idx = preds[0]
         except Exception:
-            # Sometimes models expect numpy array
             prediction_idx = selected_model.predict(X.values)[0]
 
-        # Try to decode using label encoder if available
+        # Label Decoding
         base_dir = Path(__file__).resolve().parent.parent
         le = load_label_encoder_for_model(base_dir=base_dir, model_dir_name=(real_key or model_name).lower().replace(" ", "_"))
         if le is not None:
@@ -69,7 +78,6 @@ def predict(model_name: str, input_data: PollutionInput):
         try:
             if hasattr(selected_model, "predict_proba"):
                 probs = selected_model.predict_proba(X if hasattr(X, "values") else X.values)
-                # take max probability of the predicted class (row 0)
                 maxp = max(probs[0].tolist())
                 confidence = float(maxp)
         except Exception:
@@ -85,7 +93,6 @@ def predict(model_name: str, input_data: PollutionInput):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-
 if __name__ == "__main__":
-    # run with: python backend/main.py
+    # This string "backend.main:app" requires the root dir to be in sys.path
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

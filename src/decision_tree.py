@@ -103,7 +103,7 @@ def train_decision_tree(input_path, model_path, results_path, seed=42):
 
 if __name__ == "__main__":
     train_decision_tree(
-        input_path="../data/labeled_pollution_data.csv",
-        model_path="../models/decision_tree",
-        results_path="../results/decision_tree"
+        input_path="data/labeled_pollution_data.csv",
+        model_path="models/decision_tree",
+        results_path="results/decision_tree"
     )

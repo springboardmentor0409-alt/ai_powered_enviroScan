@@ -3,9 +3,9 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import pandas as pd
 import numpy as np
-from pathlib import Path
-from model_loader import get_artifacts
 import math
+
+# Removed: from model_loader import get_artifacts
 
 class PollutionInput(BaseModel):
     date: str  # DD-MM-YYYY
@@ -61,9 +61,8 @@ class PollutionInput(BaseModel):
 def preprocess_input(data: PollutionInput) -> pd.DataFrame:
     """
     Convert a PollutionInput to a preprocessed pandas DataFrame ready for model input.
-    Uses artifacts loaded into model_loader.get_artifacts()
+    NO ARTIFACTS VERSION: Performs date math and wind calc, but skips scaling/clipping.
     """
-    artifacts = get_artifacts() or {}
     input_dict = data.dict(by_alias=True)
     # Map Pydantic PM2_5 to DF column PM2.5
     mapping = {"PM2_5": "PM2.5"}
@@ -84,75 +83,37 @@ def preprocess_input(data: PollutionInput) -> pd.DataFrame:
     })
 
     pollutant_cols = ["PM2.5","PM10","NO2","SO2","CO","O3"]
-
-    # 1. Clip Outliers
-    clip_limits = artifacts.get("clip_limits", {})
+    
+    # 1. Fill Missing Values (Simple fallback instead of Median from Artifacts)
+    # Filling pollutants with 0.0 if missing, to prevent model crash
     for col in pollutant_cols:
-        if col in clip_limits and col in df.columns:
-            low, high = clip_limits[col]
-            df[col] = df[col].astype(float).clip(lower=low, upper=high)
+        if col in df.columns:
+            df[col] = df[col].fillna(0.0)
 
-    # 2. Imputation (KNN) - Spatial
+    # 2. Imputation for Distances (Simple fallback instead of KNN)
     knn_cols = ["dist_to_road","dist_to_industry","dist_to_farm"]
-    if "imputer" in artifacts:
-        try:
-            imputer = artifacts["imputer"]
-            # ensure all knn_cols present
-            for c in knn_cols:
-                if c not in df.columns:
-                    df[c] = np.nan
-            df[knn_cols] = imputer.transform(df[knn_cols])
-        except Exception:
-            # don't crash on missing artifact or transform failure
-            pass
+    for c in knn_cols:
+        if c not in df.columns or pd.isna(df[c].iloc[0]):
+            df[c] = 0.0 # Default to 0 if missing
 
-    # 3. Fill Missing with Median
-    median_values = artifacts.get("median_values", {})
-    for col in pollutant_cols:
-        if col in df.columns and pd.isna(df[col].iloc[0]):
-            df[col] = df[col].fillna(median_values.get(col, 0))
-
-    # 4. Wind direction -> components
+    # 3. Wind direction -> components
     df["wind_dir"] = df.get("wind_dir", np.nan)
     df["wind_dir_rad"] = np.deg2rad(df["wind_dir"].fillna(0))
     df["wind_u"] = np.cos(df["wind_dir_rad"])
     df["wind_v"] = np.sin(df["wind_dir_rad"])
 
-    # 5. Scaling (if scalers present)
-    if "scaler_pollutants" in artifacts and "scaler_meta" in artifacts:
-        try:
-            scaler_pollutants = artifacts["scaler_pollutants"]
-            scaler_meta = artifacts["scaler_meta"]
+    # 4. Scaling Removed 
+    # (Original code used scaler_pollutants and scaler_meta from artifacts.
+    #  We now pass raw values. NOTE: If model expects scaled data, accuracy may drop.)
 
-            meta_cols = ["temp","humidity","wind_speed","traffic_index",
-                        "dist_to_road","dist_to_industry","dist_to_farm","fire_min_dist_km"]
-
-            # ensure columns exist
-            for c in pollutant_cols:
-                if c not in df.columns:
-                    df[c] = np.nan
-            for c in meta_cols:
-                if c not in df.columns:
-                    df[c] = np.nan
-
-            p_scaled = scaler_pollutants.transform(df[pollutant_cols])
-            for i, c in enumerate(pollutant_cols):
-                df[f"{c}_s"] = p_scaled[:, i]
-
-            m_scaled = scaler_meta.transform(df[meta_cols])
-            for i, c in enumerate(meta_cols):
-                df[f"{c}_s"] = m_scaled[:, i]
-        except Exception:
-            # if transformers fail, continue without scaled columns
-            pass
-
-    # 6. Wind alignment synthetic bearings
+    # 5. Wind alignment synthetic bearings
     def align(w_u, w_v, bearing_deg):
         b_rad = np.deg2rad(bearing_deg)
         return (w_u*np.cos(b_rad) + w_v*np.sin(b_rad) + 1) / 2
 
     lat = df["latitude"].iloc[0]
     lon = df["longitude"].iloc[0]
+    
     # synthetic bearings (keep same formula as original)
     df["road_bearing"] = (lat * 31 + lon * 17) % 360
     df["industry_bearing"] = (lat * 41 + lon * 23) % 360
@@ -164,5 +125,4 @@ def preprocess_input(data: PollutionInput) -> pd.DataFrame:
     df["align_f"] = align(df["wind_u"], df["wind_v"], df["farm_bearing"])
     df["align_fire"] = align(df["wind_u"], df["wind_v"], df["fire_bearing"])
 
-    # Final: return dataframe (model expects specific column order—ensure your training pipeline columns align)
     return df
