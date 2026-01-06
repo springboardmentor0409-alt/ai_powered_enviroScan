@@ -99,3 +99,8 @@ pip install -r requirements.txt
 cd dashboard
 streamlit run app.py
 ```
+🚀 Future Enhancements
+-> Satellite-based pollution estimation
+-> Multi-sensor integration
+-> Pollution forecasting and trend analysis
+-> Cloud deployment for public access
