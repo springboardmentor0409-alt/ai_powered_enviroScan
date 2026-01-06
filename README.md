@@ -1,121 +1,88 @@
-# AI-EnviroScan  
-### **AI-Powered Pollution Source Identifier using Geospatial Analytics**
+🌪️ AI-EnviroScan
+Pinpointing the Invisible — Discovering Where Pollution Really Comes From
 
-AI-EnviroScan is an intelligent AI system that identifies the **probable source of air pollution** using machine learning, weather data, pollutant readings, and geospatial analytics.  
-Instead of only measuring pollutant levels, the system predicts whether pollution is caused by **industrial activity, vehicles, agricultural burning, dumping sites, or natural factors**, and visualizes hotspots on interactive maps.
+Most air quality systems stop at “how bad is the air?”
+AI-EnviroScan goes one step further — it answers “who’s responsible?”
 
----
+AI-EnviroScan is an AI-powered geospatial intelligence platform that not only measures air pollution, but tracks its likely source using a fusion of machine learning, wind-flow modeling, and OpenStreetMap-based spatial analytics.
 
-##  Key Features
+🔥 What Makes This Project Unique?
+| Traditional AQ Systems  | AI-EnviroScan                   |
+| ----------------------- | ------------------------------- |
+| Shows pollution level   | **Identifies pollution origin** |
+| Static AQI charts       | **Interactive real-time maps**  |
+| No spatial intelligence | **Wind-aware plume tracing**    |
+| Data only               | **Actionable insights**         |
 
-- Predict pollution sources (Industrial, Vehicular, Agricultural, Burning, Natural)  
-- Interactive geospatial heatmaps & hotspot visualization  
-- Real-time pollution alerts  
-- Dashboard with pollutant trends and source distribution  
-- Integration with OpenAQ, OpenWeather, OSMnx  
-- Automated data cleaning & feature engineering  
-- ML-based pollution source prediction  
-- Streamlit-powered real-time dashboard  
+🎯 Capabilities
 
----
+🏭 Classifies Pollution Source
+Industrial • Vehicular • Agricultural Burning • Natural Dust • Biomass Fire
 
-##  Project Workflow
+🗺️ Live Geospatial Hotspot Detection
+Pinpoints high-risk zones with interactive Folium maps
 
-Data Collection → Preprocessing → Source Labeling → Model Training  
-Geospatial Mapping ← Predictions ← Real-Time Dashboard & Alerts  
+🌬️ Wind-Aware Source Attribution
+Tracks pollution plumes using wind vectors
 
----
+📊 AI-Driven Analytics Dashboard
+Trend analysis, alerts, and source distribution
 
-##  System Architecture
+🚨 Real-Time Alerts
+Instant notification when thresholds exceed
 
-APIs (OpenAQ, OpenWeather, OSMnx)  
-→ Data Cleaning & Feature Engineering  
-→ ML Model (RF/XGBoost)  
-→ Predictions  
-→ Geospatial Mapping  
-→ Dashboard & Alerts (Streamlit)
+🧠 How It Works
+1️⃣ Multi-Source Data Fusion
+| Source             | Purpose                                 |
+| ------------------ | --------------------------------------- |
+| **OpenAQ**         | Real-time PM2.5, PM10, NO₂, SO₂, CO, O₃ |
+| **OpenWeatherMap** | Wind speed & direction                  |
+| **OSMnx**          | Factories, highways, farmland proximity |
 
----
+2️⃣ Smart Feature Engineering
+| Signal                              | Interpretation                |
+| ----------------------------------- | ----------------------------- |
+| High **SO₂ / NO₂**                  | Industrial / Coal combustion  |
+| High **NO₂ near roads**             | Vehicular traffic             |
+| High **PM + farmland + dry season** | Agricultural burning          |
+| Wind-upstream factory               | Industrial plume confirmation |
 
-##  Modules Overview
+3️⃣ AI Models
 
-### 1. Data Collection  
-- Collect pollutant data  
-- Collect weather data  
-- Extract geospatial features  
-- Store in CSV/JSON  
+Random Forest
 
-### 2. Data Cleaning  
-- Remove duplicates  
-- Handle missing values  
-- Normalize features  
-- Build unified DataFrame  
+XGBoost
 
-### 3. Source Labeling  
-Rule examples:  
-- Road + NO₂ → Vehicular  
-- Factory + SO₂ → Industrial  
-- Farmland + dry season + PM → Agricultural  
+Trained using a semi-supervised hybrid labeling pipeline — heuristic rules + manual expert validation.
 
-### 4. Model Training  
-- Train Random Forest, XGBoost  
-- Evaluate using accuracy, precision, recall, F1-score  
+OpenAQ + OpenWeather + OSMnx  
+        ↓  
+Data Cleaning & Feature Engineering  
+        ↓  
+Random Forest / XGBoost Model  
+        ↓  
+Pollution Source Prediction  
+        ↓  
+Geospatial Intelligence Engine  
+        ↓  
+Streamlit Dashboard + Alerts
 
-### 5. Geospatial Mapping  
-- Create heatmaps  
-- Create marker maps  
-- Highlight high-risk zones  
+📸 Dashboard Preview
 
-### 6. Real-Time Dashboard  
-- Show predictions  
-- Alert when thresholds exceed  
-- Trend charts  
-- Source distribution pie charts  
+🗺️ Pollution Hotspot Map | 📊 Source Distribution | 📈 Trend Analytics
 
-### 7. Documentation  
-- Architecture diagrams  
-- Model metrics  
-- Final report & presentation  
 
----
+🧰 Tech Stack
+| Layer      | Tools                             |
+| ---------- | --------------------------------- |
+| Language   | Python 3.9+                       |
+| ML         | Scikit-Learn, XGBoost             |
+| Geospatial | GeoPandas, Folium, OSMnx, Shapely |
+| APIs       | OpenAQ, OpenWeatherMap            |
+| Interface  | Streamlit                         |
 
-##  How to Run
-
-### Clone Repository
-```
 git clone https://github.com/your-username/AI-EnviroScan.git
 cd AI-EnviroScan
-```
-
-### Install Dependencies
-```
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### Launch Dashboard
-```
-streamlit run app.py
-```
-
----
-
-## Tech Stack
-
-- Python  
-- Pandas, NumPy  
-- Scikit-learn, XGBoost  
-- GeoPandas, Folium, OSMnx  
-- Streamlit
-
----
-
-## Future Enhancements
-
-- Satellite-based pollution estimation  
-- Predictive pollution forecasting  
-- Multi-sensor integration  
-- Cloud deployment  
-
----
-
-
