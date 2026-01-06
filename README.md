@@ -7,6 +7,8 @@ AI-EnviroScan goes one step further — it answers “who’s responsible?”
 
 AI-EnviroScan is an AI-powered geospatial intelligence platform that not only measures air pollution, but tracks its likely source using a fusion of machine learning, wind-flow modeling, and OpenStreetMap-based spatial analytics.
 
+
+
 🔥 What Makes This Project Unique?
 | Traditional AQ Systems  | AI-EnviroScan                   |
 | ----------------------- | ------------------------------- |
@@ -14,6 +16,8 @@ AI-EnviroScan is an AI-powered geospatial intelligence platform that not only me
 | Static AQI charts       | **Interactive real-time maps**  |
 | No spatial intelligence | **Wind-aware plume tracing**    |
 | Data only               | **Actionable insights**         |
+
+
 
 🎯 Capabilities
 
@@ -31,6 +35,8 @@ Trend analysis, alerts, and source distribution
 
 🚨 Real-Time Alerts
 Instant notification when thresholds exceed
+
+
 
 🧠 How It Works
 
@@ -57,21 +63,24 @@ XGBoost
 
 Trained using a semi-supervised hybrid labeling pipeline — heuristic rules + manual expert validation.
 
-OpenAQ + OpenWeather + OSMnx  
+OpenAQ + OpenWeather + OSMnx 
+
         ↓  
 Data Cleaning & Feature Engineering  
+
         ↓  
 Random Forest / XGBoost Model  
+
         ↓  
-Pollution Source Prediction  
+Pollution Source Prediction 
+
         ↓  
-Geospatial Intelligence Engine  
+Geospatial Intelligence Engine 
+
         ↓  
 Streamlit Dashboard + Alerts
 
-📸 Dashboard Preview
 
-🗺️ Pollution Hotspot Map | 📊 Source Distribution | 📈 Trend Analytics
 
 
 🧰 Tech Stack
@@ -82,6 +91,8 @@ Streamlit Dashboard + Alerts
 | Geospatial | GeoPandas, Folium, OSMnx, Shapely |
 | APIs       | OpenAQ, OpenWeatherMap            |
 | Interface  | Streamlit                         |
+
+
 
 ▶️ How to Run the Project
 
@@ -99,8 +110,15 @@ pip install -r requirements.txt
 cd dashboard
 streamlit run app.py
 ```
+
+
 🚀 Future Enhancements
+
 -> Satellite-based pollution estimation
+
 -> Multi-sensor integration
+
 -> Pollution forecasting and trend analysis
+
 -> Cloud deployment for public access
+
