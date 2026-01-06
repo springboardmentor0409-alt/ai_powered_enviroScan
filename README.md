@@ -80,7 +80,7 @@ Streamlit Dashboard + Alerts
 | Geospatial | GeoPandas, Folium, OSMnx, Shapely |
 | APIs       | OpenAQ, OpenWeatherMap            |
 | Interface  | Streamlit                         |
-
+```bash
 git clone https://github.com/your-username/AI-EnviroScan.git
 cd AI-EnviroScan
 python -m venv venv
