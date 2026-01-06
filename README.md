@@ -80,9 +80,19 @@ Streamlit Dashboard + Alerts
 | Geospatial | GeoPandas, Folium, OSMnx, Shapely |
 | APIs       | OpenAQ, OpenWeatherMap            |
 | Interface  | Streamlit                         |
+
+▶️ How to Run the Project
+1️⃣ Clone the Repository\
 ```bash
-git clone https://github.com/your-username/AI-EnviroScan.git
-cd AI-EnviroScan
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+git clone https://github.com/your-username/ai_powered_enviroScan.git
+cd ai_powered_enviroScan
+```
+2️⃣ Install Dependencies
+```bash
 pip install -r requirements.txt
+```
+3️⃣ Launch the Dashboard
+```bash
+cd dashboard
+streamlit run app.py
+```
