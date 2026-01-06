@@ -82,7 +82,8 @@ Streamlit Dashboard + Alerts
 | Interface  | Streamlit                         |
 
 ▶️ How to Run the Project
-1️⃣ Clone the Repository\
+
+1️⃣ Clone the Repository
 ```bash
 git clone https://github.com/your-username/ai_powered_enviroScan.git
 cd ai_powered_enviroScan
