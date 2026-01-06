@@ -1,4 +1,5 @@
 🌪️ AI-EnviroScan
+
 Pinpointing the Invisible — Discovering Where Pollution Really Comes From
 
 Most air quality systems stop at “how bad is the air?”
@@ -32,6 +33,7 @@ Trend analysis, alerts, and source distribution
 Instant notification when thresholds exceed
 
 🧠 How It Works
+
 1️⃣ Multi-Source Data Fusion
 | Source             | Purpose                                 |
 | ------------------ | --------------------------------------- |
